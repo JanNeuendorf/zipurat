@@ -8,29 +8,32 @@ use std::{
 };
 use zip::{ZipArchive, read::ZipFile};
 
-fn read_raw_file<R: Read + Seek>(archive: &mut ZipArchive<R>, name: &str) -> Result<Vec<u8>> {
+fn read_raw_file_direct<R: Read + Seek>(
+    archive: &mut ZipArchive<R>,
+    name: &str,
+) -> Result<Vec<u8>> {
     let mut zip_file = archive.by_name(name)?;
     let mut content = vec![];
     zip_file.read_to_end(&mut content)?;
     Ok(content)
 }
 
-fn read_decompressed_file<R: Read + Seek>(
+fn read_decompressed_file_direct<R: Read + Seek>(
     archive: &mut ZipArchive<R>,
     name: &str,
 ) -> Result<Vec<u8>> {
-    let raw_content = read_raw_file(archive, name)?;
+    let raw_content = read_raw_file_direct(archive, name)?;
     let mut decompressed = vec![];
     zstd::stream::copy_decode(Cursor::new(raw_content), &mut decompressed)?;
     Ok(decompressed)
 }
 
-fn read_decrypted_file<R: Read + Seek>(
+pub fn read_decrypted_file_direct<R: Read + Seek>(
     archive: &mut ZipArchive<R>,
     name: &str,
     keys: &Vec<Box<dyn age::Identity>>,
 ) -> Result<Vec<u8>> {
-    let encrypted = read_decompressed_file(archive, name)?;
+    let encrypted = read_decompressed_file_direct(archive, name)?;
     let mut decrypted = vec![];
     let decryptor = age::Decryptor::new(&encrypted[..])?;
     let mut reader = decryptor.decrypt(keys.iter().map(|b| b.as_ref()))?;
@@ -60,7 +63,7 @@ fn open_remote_archive(
     return Ok(ZipArchive::new(GenericFile::Remote(remote_file))?);
 }
 
-enum GenericFile {
+pub enum GenericFile {
     Local(std::fs::File),
     Remote(ssh2::File),
 }
@@ -81,4 +84,9 @@ impl Seek for GenericFile {
             GenericFile::Local(f) => f.seek(pos),
         }
     }
+}
+
+pub fn blake3_hash(data: &Vec<u8>) -> String {
+    let hash = blake3::hash(&data);
+    hash.to_hex().to_string()
 }
