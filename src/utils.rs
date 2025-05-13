@@ -1,12 +1,13 @@
 use anyhow::{Context, Result};
 use std::{
     fs,
-    io::{Cursor, Read, Seek},
+    io::{Cursor, Read, Seek, Write},
     iter,
     net::TcpStream,
     path::Path,
 };
 use zip::{ZipArchive, read::ZipFile};
+use zstd::zstd_safe::WriteBuf;
 
 fn read_raw_file_direct<R: Read + Seek>(
     archive: &mut ZipArchive<R>,
@@ -39,6 +40,22 @@ pub fn read_decrypted_file_direct<R: Read + Seek>(
     let mut reader = decryptor.decrypt(keys.iter().map(|b| b.as_ref()))?;
     reader.read_to_end(&mut decrypted)?;
     Ok(decrypted)
+}
+
+pub fn compress(input: &Vec<u8>, level: i32) -> Result<Vec<u8>> {
+    let mut out = vec![];
+    zstd::stream::copy_encode(input.as_slice(), &mut out, level)?;
+    Ok(out)
+}
+
+pub fn encrypt(input: &Vec<u8>, keys: &Vec<Box<&dyn age::Recipient>>) -> Result<Vec<u8>> {
+    let encryptor = age::Encryptor::with_recipients(keys.iter().map(|k| *k.as_ref()))?;
+    let mut encrypted = vec![];
+    let mut writer = encryptor.wrap_output(&mut encrypted)?;
+    writer.write_all(input)?;
+    writer.finish()?;
+
+    Ok(encrypted)
 }
 
 fn open_local_archive(filename: &str) -> Result<ZipArchive<GenericFile>> {
@@ -82,6 +99,21 @@ impl Seek for GenericFile {
         match self {
             GenericFile::Remote(f) => f.seek(pos),
             GenericFile::Local(f) => f.seek(pos),
+        }
+    }
+}
+impl Write for GenericFile {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        match self {
+            GenericFile::Remote(f) => f.write(buf),
+            GenericFile::Local(f) => f.write(buf),
+        }
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        match self {
+            GenericFile::Remote(f) => f.flush(),
+            GenericFile::Local(f) => f.flush(),
         }
     }
 }

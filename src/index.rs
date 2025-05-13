@@ -13,8 +13,8 @@ use crate::utils::{GenericFile, blake3_hash, read_decrypted_file_direct};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Index {
-    hashes: HashMap<u64, String>,
-    mapping: HashMap<PathBuf, u64>,
+    pub hashes: HashMap<u64, String>,
+    pub mapping: HashMap<PathBuf, u64>,
 }
 
 impl Index {
