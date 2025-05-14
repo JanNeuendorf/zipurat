@@ -37,16 +37,12 @@ fn recurse_dir(root: &Path, dir: &Path, files: &mut Vec<PathBuf>) -> Result<()> 
 
 pub(crate) fn build_archive(
     source: &Path,
-    archive_file: &mut GenericFile,
-    id_file: &Path,
+    mut archive: ZipWriter<GenericFile>,
+    recipients: Vec<Box<dyn age::Recipient + Send>>,
     level: i32,
 ) -> Result<()> {
     let file_list = list_all_files_recursive(source)?;
-    let mut archive = ZipWriter::new(archive_file);
 
-    let recipients =
-        age::IdentityFile::from_file(id_file.to_str().ok_or(anyhow!("Invalid path"))?.to_string())?
-            .to_recipients()?;
     let reps: Vec<Box<&dyn age::Recipient>> = recipients
         .iter()
         .map(|r| r.as_ref() as &dyn age::Recipient)

@@ -9,9 +9,9 @@ use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use zip::ZipArchive;
 
-use crate::utils::{GenericFile, blake3_hash, read_decrypted_file_direct};
+use crate::utils::{GenericFile, blake3_hash, read_decompressed_file_direct};
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Index {
     pub hashes: HashMap<u64, String>,
     pub mapping: HashMap<PathBuf, u64>,
@@ -22,7 +22,7 @@ impl Index {
         archive: &mut ZipArchive<GenericFile>,
         keys: &Vec<Box<dyn age::Identity>>,
     ) -> Result<Self> {
-        let content = read_decrypted_file_direct(archive, "zipurat_index_v1", keys)?;
+        let content = read_decompressed_file_direct(archive, "zipurat_index_v1", keys)?;
         Ok(serde_json::from_str(&String::from_utf8(content)?)?)
     }
     pub fn index(&self, path: &Path) -> Option<u64> {
@@ -44,7 +44,7 @@ impl Index {
         keys: &Vec<Box<dyn age::Identity>>,
     ) -> Result<Vec<u8>> {
         let (index, hash) = self.index_and_hash(path)?;
-        let content = read_decrypted_file_direct(archive, &format!("{index}"), keys)?;
+        let content = read_decompressed_file_direct(archive, &format!("{index}"), keys)?;
         if hash != blake3_hash(&content) {
             return Err(anyhow!("The hash of the file does not match"));
         } else {

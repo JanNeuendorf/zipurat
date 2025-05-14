@@ -1,14 +1,12 @@
 use std::path::Path;
 
+use clap::Parser;
+
 mod archiver;
+mod cli;
 mod index;
 mod utils;
 fn main() {
-    archiver::build_archive(
-        &Path::new("target"),
-        &mut utils::GenericFile::Local(std::fs::File::create("testing/test.zipurat.zip").unwrap()),
-        &Path::new("testing/testkey.age"),
-        4,
-    )
-    .unwrap();
+    let result = cli::Cli::parse().run();
+    result.unwrap();
 }

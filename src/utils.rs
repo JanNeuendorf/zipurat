@@ -6,8 +6,7 @@ use std::{
     net::TcpStream,
     path::Path,
 };
-use zip::{ZipArchive, read::ZipFile};
-use zstd::zstd_safe::WriteBuf;
+use zip::{ZipArchive, ZipWriter, read::ZipFile};
 
 fn read_raw_file_direct<R: Read + Seek>(
     archive: &mut ZipArchive<R>,
@@ -19,22 +18,23 @@ fn read_raw_file_direct<R: Read + Seek>(
     Ok(content)
 }
 
-fn read_decompressed_file_direct<R: Read + Seek>(
+pub fn read_decompressed_file_direct<R: Read + Seek>(
     archive: &mut ZipArchive<R>,
     name: &str,
+    keys: &Vec<Box<dyn age::Identity>>,
 ) -> Result<Vec<u8>> {
-    let raw_content = read_raw_file_direct(archive, name)?;
+    let raw_content = read_decrypted_file_direct(archive, name, keys)?;
     let mut decompressed = vec![];
     zstd::stream::copy_decode(Cursor::new(raw_content), &mut decompressed)?;
     Ok(decompressed)
 }
 
-pub fn read_decrypted_file_direct<R: Read + Seek>(
+fn read_decrypted_file_direct<R: Read + Seek>(
     archive: &mut ZipArchive<R>,
     name: &str,
     keys: &Vec<Box<dyn age::Identity>>,
 ) -> Result<Vec<u8>> {
-    let encrypted = read_decompressed_file_direct(archive, name)?;
+    let encrypted = read_raw_file_direct(archive, name)?;
     let mut decrypted = vec![];
     let decryptor = age::Decryptor::new(&encrypted[..])?;
     let mut reader = decryptor.decrypt(keys.iter().map(|b| b.as_ref()))?;
@@ -58,12 +58,18 @@ pub fn encrypt(input: &Vec<u8>, keys: &Vec<Box<&dyn age::Recipient>>) -> Result<
     Ok(encrypted)
 }
 
-fn open_local_archive(filename: &str) -> Result<ZipArchive<GenericFile>> {
-    let file = GenericFile::Local(std::fs::File::open(filename)?);
+pub fn open_local_archive_read(filename: &str) -> Result<ZipArchive<GenericFile>> {
+    let f = std::fs::File::open(filename)?;
+    let file = GenericFile::Local(f);
     return Ok(ZipArchive::new(file)?);
 }
+pub fn open_local_archive_write(filename: &str) -> Result<ZipWriter<GenericFile>> {
+    let f = std::fs::File::create_new(filename)?;
+    let file = GenericFile::Local(f);
+    return Ok(ZipWriter::new(file));
+}
 
-fn open_remote_archive(
+pub fn open_remote_archive_read(
     host: &str,
     user: &str,
     filename: &str,
@@ -75,9 +81,26 @@ fn open_remote_archive(
     sess.handshake().unwrap();
     sess.userauth_agent(user).unwrap();
     let sftp = sess.sftp()?;
-    let remote_file = sftp.open(filename)?;
+    let remote_file = sftp.open(Path::new(filename))?;
 
     return Ok(ZipArchive::new(GenericFile::Remote(remote_file))?);
+}
+
+pub fn open_remote_archive_write(
+    host: &str,
+    user: &str,
+    filename: &str,
+    port: u64,
+) -> Result<ZipWriter<GenericFile>> {
+    let tcp = TcpStream::connect(format!("{}:{}", host, port)).unwrap();
+    let mut sess = ssh2::Session::new().unwrap();
+    sess.set_tcp_stream(tcp);
+    sess.handshake().unwrap();
+    sess.userauth_agent(user).unwrap();
+    let sftp = sess.sftp()?;
+    let remote_file = sftp.create(Path::new(filename))?;
+
+    return Ok(ZipWriter::new(GenericFile::Remote(remote_file)));
 }
 
 pub enum GenericFile {
