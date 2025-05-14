@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -7,6 +7,7 @@ use std::io::Write;
 
 use crate::index::Index;
 use crate::utils::{GenericFile, blake3_hash, compress, encrypt};
+use indicatif::{ProgressBar, ProgressStyle};
 
 fn list_all_files_recursive(dir: &Path) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
@@ -27,7 +28,7 @@ fn recurse_dir(root: &Path, dir: &Path, files: &mut Vec<PathBuf>) -> Result<()> 
                 files.push(relative_path.to_path_buf());
             }
         } else {
-            return Err(anyhow!("Non file object"));
+            // return Err(anyhow!("Non file object {}", path.to_string_lossy()));
         }
     }
     Ok(())
@@ -51,8 +52,11 @@ pub(crate) fn build_archive(
     let mut mapping = HashMap::new();
     let mut sizes = HashMap::new();
     let mut current_index = 0;
+    let pb = ProgressBar::new(file_list.len() as u64);
+    pb.set_style(ProgressStyle::with_template("{bar:40} {pos:>7}/{len:7}  eta:{eta}").unwrap());
+
     for (i, in_path) in file_list.iter().enumerate() {
-        println!("Now working on {} of {}", i, file_list.len());
+        pb.set_position(i as u64);
         let mut read_path = PathBuf::new();
         read_path.push(source);
         read_path.push(in_path);
@@ -102,15 +106,16 @@ pub(crate) fn build_archive(
         sizes,
     };
 
-    // let index_deser = serde_json::to_string(&index)?.as_bytes().to_vec();
-    let mut index_deser = vec![];
-    ciborium::into_writer(&index, &mut index_deser)?;
+    let index_deser = serde_json::to_string(&index)?.as_bytes().to_vec();
+    // let mut index_deser = vec![];
+    // ciborium::into_writer(&index, &mut index_deser)?;
     let processed = encrypt(&index_deser, &reps)?;
     let index_start = current_index;
     archive.write_all(&processed)?;
     archive.write_all(&index_start.to_le_bytes())?;
     archive.write_all(&(0 as u32).to_le_bytes())?;
     archive.write_all(&(1 as u32).to_le_bytes())?;
+    pb.finish_with_message("Archive written");
     Ok(())
 }
 

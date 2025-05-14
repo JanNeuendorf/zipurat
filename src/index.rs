@@ -8,7 +8,6 @@ use anyhow::Result;
 use anyhow::anyhow;
 
 use serde::{Deserialize, Serialize};
-use zstd::zstd_safe::WriteBuf;
 
 use crate::utils::{GenericFile, blake3_hash, decompress, decrypt};
 
@@ -37,21 +36,21 @@ impl Index {
 
         let start = std::time::Instant::now();
 
-        // let deser = serde_json::from_str(&String::from_utf8(content)?)?;
-        let deser = ciborium::from_reader(content.as_slice())?;
+        let deser = serde_json::from_str(&String::from_utf8(content)?)?;
+        // let deser = ciborium::from_reader(content.as_slice())?;
         dbg!(start.elapsed());
         Ok(deser)
     }
     pub fn index(&self, path: &Path) -> Option<(u64, u64)> {
         self.mapping.get(path).map(|i| i.clone())
     }
-    pub fn index_length_and_hash(&self, path: &Path) -> Result<(u64, u64, &str)> {
+    pub fn index_length_and_hash(&self, path: &Path) -> Result<(u64, u64, String)> {
         let index = self.index(path).ok_or(anyhow!("File not in index"))?;
         let hash = self
             .hashes
             .get(&index.0)
             .ok_or(anyhow!("File hash not found"))?;
-        Ok((index.0, index.1, hash))
+        Ok((index.0, index.1, hash.clone()))
     }
 
     pub fn read_file(
