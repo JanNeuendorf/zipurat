@@ -2,10 +2,8 @@ use anyhow::{Result, anyhow};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use zip::write::SimpleFileOptions;
-use zip::{ZipArchive, ZipWriter};
 
-use std::io::{self, Write};
+use std::io::Write;
 
 use crate::index::Index;
 use crate::utils::{GenericFile, blake3_hash, compress, encrypt};
@@ -37,7 +35,7 @@ fn recurse_dir(root: &Path, dir: &Path, files: &mut Vec<PathBuf>) -> Result<()> 
 
 pub(crate) fn build_archive(
     source: &Path,
-    mut archive: ZipWriter<GenericFile>,
+    archive: &mut GenericFile,
     recipients: Vec<Box<dyn age::Recipient + Send>>,
     level: i32,
 ) -> Result<()> {
@@ -50,27 +48,39 @@ pub(crate) fn build_archive(
         .collect();
     let mut hashes = HashMap::new();
     let mut mapping = HashMap::new();
+    let mut sizes = HashMap::new();
+    let mut current_index = 0;
     for (i, in_path) in file_list.iter().enumerate() {
         println!("Now working on {} of {}", i, file_list.len());
         let mut read_path = PathBuf::new();
         read_path.push(source);
         read_path.push(in_path);
         let raw = fs::read(read_path)?;
+        let raw_size = raw.len() as u64;
         let hash = blake3_hash(&raw);
         let processed = encrypt(&compress(&raw, level)?, &reps)?;
-        hashes.insert(i as u64, hash);
-        archive.start_file(format!("{i}"), SimpleFileOptions::default())?;
+        let chunk_len = processed.len() as u64;
+
+        hashes.insert(current_index as u64, hash);
+        sizes.insert(current_index as u64, raw_size);
         archive.write_all(&processed)?;
-        mapping.insert(in_path.clone(), i as u64);
+        mapping.insert(in_path.clone(), (current_index, chunk_len));
+        current_index += chunk_len;
     }
 
-    let index = Index { mapping, hashes };
+    let index = Index {
+        mapping,
+        hashes,
+        sizes,
+    };
+
     let index_deser = serde_json::to_string(&index)?.as_bytes().to_vec();
     let processed = encrypt(&compress(&index_deser, level)?, &reps)?;
-    archive.start_file("zipurat_index_v1", SimpleFileOptions::default())?;
+    let index_start = current_index;
     archive.write_all(&processed)?;
-
-    archive.finish()?;
+    archive.write_all(&index_start.to_le_bytes())?;
+    archive.write_all(&(0 as u32).to_le_bytes())?;
+    archive.write_all(&(1 as u32).to_le_bytes())?;
     Ok(())
 }
 

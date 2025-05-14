@@ -1,46 +1,9 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::{
-    fs,
-    io::{Cursor, Read, Seek, Write},
-    iter,
+    io::{Read, Seek, Write},
     net::TcpStream,
     path::Path,
 };
-use zip::{ZipArchive, ZipWriter, read::ZipFile};
-
-fn read_raw_file_direct<R: Read + Seek>(
-    archive: &mut ZipArchive<R>,
-    name: &str,
-) -> Result<Vec<u8>> {
-    let mut zip_file = archive.by_name(name)?;
-    let mut content = vec![];
-    zip_file.read_to_end(&mut content)?;
-    Ok(content)
-}
-
-pub fn read_decompressed_file_direct<R: Read + Seek>(
-    archive: &mut ZipArchive<R>,
-    name: &str,
-    keys: &Vec<Box<dyn age::Identity>>,
-) -> Result<Vec<u8>> {
-    let raw_content = read_decrypted_file_direct(archive, name, keys)?;
-    let mut decompressed = vec![];
-    zstd::stream::copy_decode(Cursor::new(raw_content), &mut decompressed)?;
-    Ok(decompressed)
-}
-
-fn read_decrypted_file_direct<R: Read + Seek>(
-    archive: &mut ZipArchive<R>,
-    name: &str,
-    keys: &Vec<Box<dyn age::Identity>>,
-) -> Result<Vec<u8>> {
-    let encrypted = read_raw_file_direct(archive, name)?;
-    let mut decrypted = vec![];
-    let decryptor = age::Decryptor::new(&encrypted[..])?;
-    let mut reader = decryptor.decrypt(keys.iter().map(|b| b.as_ref()))?;
-    reader.read_to_end(&mut decrypted)?;
-    Ok(decrypted)
-}
 
 pub fn compress(input: &Vec<u8>, level: i32) -> Result<Vec<u8>> {
     let mut out = vec![];
@@ -58,15 +21,30 @@ pub fn encrypt(input: &Vec<u8>, keys: &Vec<Box<&dyn age::Recipient>>) -> Result<
     Ok(encrypted)
 }
 
-pub fn open_local_archive_read(filename: &str) -> Result<ZipArchive<GenericFile>> {
+pub fn decompress(input: &Vec<u8>) -> Result<Vec<u8>> {
+    let mut out = vec![];
+    zstd::stream::copy_decode(input.as_slice(), &mut out)?;
+    Ok(out)
+}
+
+pub fn decrypt(input: &Vec<u8>, keys: &Vec<Box<dyn age::Identity>>) -> Result<Vec<u8>> {
+    let decryptor = age::Decryptor::new(input.as_slice())?;
+
+    let mut reader = decryptor.decrypt(keys.iter().map(|k| k.as_ref() as &dyn age::Identity))?;
+    let mut decrypted = vec![];
+    reader.read_to_end(&mut decrypted)?;
+    Ok(decrypted)
+}
+
+pub fn open_local_archive_read(filename: &str) -> Result<GenericFile> {
     let f = std::fs::File::open(filename)?;
     let file = GenericFile::Local(f);
-    return Ok(ZipArchive::new(file)?);
+    return Ok(file);
 }
-pub fn open_local_archive_write(filename: &str) -> Result<ZipWriter<GenericFile>> {
+pub fn open_local_archive_write(filename: &str) -> Result<GenericFile> {
     let f = std::fs::File::create_new(filename)?;
     let file = GenericFile::Local(f);
-    return Ok(ZipWriter::new(file));
+    return Ok(file);
 }
 
 pub fn open_remote_archive_read(
@@ -74,23 +52,16 @@ pub fn open_remote_archive_read(
     user: &str,
     filename: &str,
     port: u64,
-) -> Result<ZipArchive<GenericFile>> {
+) -> Result<GenericFile> {
     let tcp = TcpStream::connect(format!("{}:{}", host, port)).unwrap();
     let mut sess = ssh2::Session::new().unwrap();
     sess.set_tcp_stream(tcp);
     sess.handshake().unwrap();
     sess.userauth_agent(user).unwrap();
-    println!("session started");
     let sftp = sess.sftp()?;
-    let mut remote_file = sftp.open(Path::new(filename))?;
-    let mut testbuf = [0_u8; 200];
-    remote_file.seek(std::io::SeekFrom::End(-900))?;
-    remote_file.read_exact(&mut testbuf).unwrap();
-    println!("File loaded {:?}", testbuf);
+    let remote_file = sftp.open(Path::new(filename))?;
 
-    let archive = ZipArchive::new(GenericFile::Remote(remote_file))?;
-    println!("arcive build");
-    return Ok(archive);
+    return Ok(GenericFile::Remote(remote_file));
 }
 
 pub fn open_remote_archive_write(
@@ -98,7 +69,7 @@ pub fn open_remote_archive_write(
     user: &str,
     filename: &str,
     port: u64,
-) -> Result<ZipWriter<GenericFile>> {
+) -> Result<GenericFile> {
     let tcp = TcpStream::connect(format!("{}:{}", host, port)).unwrap();
     let mut sess = ssh2::Session::new().unwrap();
     sess.set_tcp_stream(tcp);
@@ -107,7 +78,7 @@ pub fn open_remote_archive_write(
     let sftp = sess.sftp()?;
     let remote_file = sftp.create(Path::new(filename))?;
 
-    return Ok(ZipWriter::new(GenericFile::Remote(remote_file)));
+    return Ok(GenericFile::Remote(remote_file));
 }
 
 pub enum GenericFile {

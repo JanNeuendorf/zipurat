@@ -1,12 +1,11 @@
 use anyhow::{Context, Result, anyhow};
 use std::{
-    io::Write,
+    io::{Seek, Write},
     path::{Path, PathBuf},
 };
-use zip::{ZipArchive, ZipWriter};
-use zstd::zstd_safe::WriteBuf;
 
 use clap::{Parser, Subcommand};
+use humansize::{DECIMAL, format_size};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about =Some("Interact with zipurat archives."))]
@@ -43,6 +42,8 @@ pub enum Commands {
         #[arg(help = "directory to list")]
         prefix: Option<PathBuf>,
     },
+    #[command(about = "Get archive information")]
+    Info {},
 }
 
 use url::Url;
@@ -56,13 +57,13 @@ use crate::{
     },
 };
 
-fn open_general_archive_read(path: &str) -> Result<ZipArchive<GenericFile>> {
+fn open_general_archive_read(path: &str) -> Result<GenericFile> {
     match parse_sftp_url(path) {
         Ok((host, user, port, path)) => open_remote_archive_read(&host, &user, &path, port),
         Err(_) => open_local_archive_read(path),
     }
 }
-fn open_general_archive_write(path: &str) -> Result<ZipWriter<GenericFile>> {
+fn open_general_archive_write(path: &str) -> Result<GenericFile> {
     match parse_sftp_url(path) {
         Ok((host, user, port, path)) => open_remote_archive_write(&host, &user, &path, port),
         Err(_) => open_local_archive_write(path),
@@ -111,17 +112,15 @@ impl Cli {
                 source,
                 compression_level,
             } => {
-                let archive = open_general_archive_write(&self.archive)?;
-                build_archive(source, archive, recipients, *compression_level)?
+                let mut archive = open_general_archive_write(&self.archive)?;
+                build_archive(source, &mut archive, recipients, *compression_level)?
             }
             Commands::Show { path, output } => {
                 let mut archive = open_general_archive_read(&self.archive)?;
                 show_command(&mut archive, path, identities, output)?
             }
             Commands::List { prefix } => {
-                println!("opening archive");
                 let mut archive = open_general_archive_read(&self.archive)?;
-                println!("done opening archive");
                 let prefix = match prefix {
                     Some(p) => p.clone(),
                     None => PathBuf::new(),
@@ -129,13 +128,17 @@ impl Cli {
 
                 list_command(&mut archive, &prefix, identities)?
             }
+            Commands::Info {} => {
+                let mut archive = open_general_archive_read(&self.archive)?;
+                info_command(&mut archive, identities)?
+            }
         };
 
         Ok(())
     }
 }
 fn show_command(
-    archive: &mut ZipArchive<GenericFile>,
+    archive: &mut GenericFile,
     path: &Path,
 
     ids: Vec<Box<dyn age::Identity>>,
@@ -158,7 +161,7 @@ fn show_command(
 }
 
 fn list_command(
-    archive: &mut ZipArchive<GenericFile>,
+    archive: &mut GenericFile,
     prefix: &Path,
     ids: Vec<Box<dyn age::Identity>>,
 ) -> Result<()> {
@@ -186,5 +189,18 @@ fn list_command(
     for p in children {
         println!("{}", p.as_os_str().to_string_lossy());
     }
+    Ok(())
+}
+fn info_command(archive: &mut GenericFile, ids: Vec<Box<dyn age::Identity>>) -> Result<()> {
+    let index = Index::parse(archive, &ids)?;
+    let total_size = index.sizes.values().sum::<u64>();
+    let compressed_size = archive.seek(std::io::SeekFrom::End(0))?;
+    println!("files: {}", index.mapping.len());
+    println!("size original: {}", format_size(total_size, DECIMAL));
+    println!("size compressed: {}", format_size(compressed_size, DECIMAL));
+    println!(
+        "compression ratio: {:.2}",
+        (total_size as f64) / (compressed_size as f64)
+    );
     Ok(())
 }
