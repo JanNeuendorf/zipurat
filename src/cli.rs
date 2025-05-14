@@ -200,9 +200,6 @@ fn info_command(archive: &mut GenericFile, ids: Vec<Box<dyn age::Identity>>) -> 
     let minor_version = u32::from_le_bytes(u32_buffer);
 
     let index = Index::parse(archive, &ids)?;
-    dbg!(index.mapping.len());
-    dbg!(index.sizes.len());
-    dbg!(index.hashes.len());
     let mut total_size = 0 as u64;
     for (k, _) in index.mapping.values() {
         total_size += index.sizes.get(&k).unwrap();

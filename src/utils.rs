@@ -4,11 +4,12 @@ use std::{
     net::TcpStream,
     path::Path,
 };
+use zstd::bulk::Compressor;
 
 pub fn compress(input: &Vec<u8>, level: i32) -> Result<Vec<u8>> {
-    let mut out = vec![];
-    zstd::stream::copy_encode(input.as_slice(), &mut out, level)?;
-    Ok(out)
+    let mut compressor = Compressor::new(level)?;
+    compressor.multithread(num_cpus::get() as u32)?;
+    Ok(compressor.compress(input.as_slice())?)
 }
 
 pub fn encrypt(input: &Vec<u8>, keys: &Vec<Box<&dyn age::Recipient>>) -> Result<Vec<u8>> {

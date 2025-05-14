@@ -8,6 +8,7 @@ use anyhow::Result;
 use anyhow::anyhow;
 
 use serde::{Deserialize, Serialize};
+use zstd::zstd_safe::WriteBuf;
 
 use crate::utils::{GenericFile, blake3_hash, decompress, decrypt};
 
@@ -32,9 +33,14 @@ impl Index {
             buffer.pop();
         }
 
-        let content = decompress(&decrypt(&buffer, keys)?)?;
+        let content = decrypt(&buffer, keys)?;
 
-        Ok(serde_json::from_str(&String::from_utf8(content)?)?)
+        let start = std::time::Instant::now();
+
+        // let deser = serde_json::from_str(&String::from_utf8(content)?)?;
+        let deser = ciborium::from_reader(content.as_slice())?;
+        dbg!(start.elapsed());
+        Ok(deser)
     }
     pub fn index(&self, path: &Path) -> Option<(u64, u64)> {
         self.mapping.get(path).map(|i| i.clone())
