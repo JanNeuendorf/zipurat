@@ -48,13 +48,12 @@ just has to make a reasonable choice. Here are the choices for zipurat:
 - age for encryption
 - zstd for compression
 - blake3 for hashes
-- zip as a file format
 
 ### The format
 
-A zipurat archive is just a zip file. Inside the archive there is a file called
-`zipurat_index_v1`. All other filenames are numbers. The contents for each file
-are zstd compressed and then encrypted with age.
+zipurat uses its own binary format.
+It is, however really easy to understand.
+
 
 The index file is a json file that contains the keys:
 
