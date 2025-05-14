@@ -1,11 +1,11 @@
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result, anyhow};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use std::io::Write;
 
-use crate::index::Index;
+use crate::index::{Index, read_from_raw_index};
 use crate::utils::{GenericFile, blake3_hash, compress, encrypt};
 
 fn list_all_files_recursive(dir: &Path) -> Result<Vec<PathBuf>> {
@@ -47,6 +47,7 @@ pub(crate) fn build_archive(
         .map(|r| Box::new(r))
         .collect();
     let mut hashes = HashMap::new();
+    let mut dedup_hashes = vec![];
     let mut mapping = HashMap::new();
     let mut sizes = HashMap::new();
     let mut current_index = 0;
@@ -55,17 +56,44 @@ pub(crate) fn build_archive(
         let mut read_path = PathBuf::new();
         read_path.push(source);
         read_path.push(in_path);
-        let raw = fs::read(read_path)?;
+        let raw = fs::read(&read_path)?;
         let raw_size = raw.len() as u64;
         let hash = blake3_hash(&raw);
         let processed = encrypt(&compress(&raw, level)?, &reps)?;
         let chunk_len = processed.len() as u64;
+        let candidates = dedup_hashes
+            .iter()
+            .filter(|(_, h)| *h == hash)
+            .map(|(p, _)| p);
 
-        hashes.insert(current_index as u64, hash);
-        sizes.insert(current_index as u64, raw_size);
-        archive.write_all(&processed)?;
-        mapping.insert(in_path.clone(), (current_index, chunk_len));
-        current_index += chunk_len;
+        let mut dedup_partner = None;
+        for c in candidates {
+            let mut ref_path = PathBuf::new();
+            ref_path.push(source);
+            ref_path.push(c);
+
+            if fs::read(ref_path)? == raw {
+                dedup_partner = Some(c);
+                break;
+            }
+        }
+
+        match dedup_partner {
+            None => {
+                hashes.insert(current_index as u64, hash.clone());
+                sizes.insert(current_index as u64, raw_size);
+                archive.write_all(&processed)?;
+                mapping.insert(in_path.clone(), (current_index, chunk_len));
+                dedup_hashes.push((in_path.clone(), hash.clone()));
+                current_index += chunk_len;
+            }
+            Some(dedup) => {
+                let (old_i, old_len) = mapping
+                    .get(dedup)
+                    .context("Dedup partner not mapped correctly")?;
+                mapping.insert(in_path.clone(), (*old_i, *old_len));
+            }
+        };
     }
 
     let index = Index {

@@ -55,10 +55,7 @@ impl Index {
         keys: &Vec<Box<dyn age::Identity>>,
     ) -> Result<Vec<u8>> {
         let (index, len, hash) = self.index_length_and_hash(path)?;
-        let mut buffer = vec![0_u8; len as usize];
-        archive.seek(SeekFrom::Start(index))?;
-        archive.read_exact(&mut buffer)?;
-        let content = decompress(&decrypt(&buffer, keys)?)?;
+        let content = read_from_raw_index(archive, keys, index, len)?;
 
         if hash != blake3_hash(&content) {
             return Err(anyhow!("The hash of the file does not match"));
@@ -66,4 +63,16 @@ impl Index {
             Ok(content)
         }
     }
+}
+pub fn read_from_raw_index(
+    archive: &mut GenericFile,
+    keys: &Vec<Box<dyn age::Identity>>,
+    index: u64,
+    len: u64,
+) -> Result<Vec<u8>> {
+    let mut buffer = vec![0_u8; len as usize];
+    archive.seek(SeekFrom::Start(index))?;
+    archive.read_exact(&mut buffer)?;
+    let content = decompress(&decrypt(&buffer, keys)?)?;
+    Ok(content)
 }

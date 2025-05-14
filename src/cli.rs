@@ -1,6 +1,6 @@
 use anyhow::{Context, Result, anyhow};
 use std::{
-    io::{Seek, Write},
+    io::{Read, Seek, Write},
     path::{Path, PathBuf},
 };
 
@@ -192,9 +192,24 @@ fn list_command(
     Ok(())
 }
 fn info_command(archive: &mut GenericFile, ids: Vec<Box<dyn age::Identity>>) -> Result<()> {
+    archive.seek(std::io::SeekFrom::End(-8))?;
+    let mut u32_buffer = [0_u8; 4];
+    archive.read_exact(&mut u32_buffer)?;
+    let major_version = u32::from_le_bytes(u32_buffer);
+    archive.read_exact(&mut u32_buffer)?;
+    let minor_version = u32::from_le_bytes(u32_buffer);
+
     let index = Index::parse(archive, &ids)?;
-    let total_size = index.sizes.values().sum::<u64>();
+    dbg!(index.mapping.len());
+    dbg!(index.sizes.len());
+    dbg!(index.hashes.len());
+    let mut total_size = 0 as u64;
+    for (k, _) in index.mapping.values() {
+        total_size += index.sizes.get(&k).unwrap();
+    }
+    let duplicats = index.mapping.len() - index.hashes.len();
     let compressed_size = archive.seek(std::io::SeekFrom::End(0))?;
+    println!("format version: {}.{}", major_version, minor_version);
     println!("files: {}", index.mapping.len());
     println!("size original: {}", format_size(total_size, DECIMAL));
     println!("size compressed: {}", format_size(compressed_size, DECIMAL));
@@ -202,5 +217,6 @@ fn info_command(archive: &mut GenericFile, ids: Vec<Box<dyn age::Identity>>) -> 
         "compression ratio: {:.2}",
         (total_size as f64) / (compressed_size as f64)
     );
+    println!("duplicate files: {}", duplicats);
     Ok(())
 }
