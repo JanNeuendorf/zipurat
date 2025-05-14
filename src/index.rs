@@ -22,7 +22,9 @@ impl Index {
         archive: &mut ZipArchive<GenericFile>,
         keys: &Vec<Box<dyn age::Identity>>,
     ) -> Result<Self> {
+        println!("Loading index");
         let content = read_decompressed_file_direct(archive, "zipurat_index_v1", keys)?;
+        println!("Done loading index");
         Ok(serde_json::from_str(&String::from_utf8(content)?)?)
     }
     pub fn index(&self, path: &Path) -> Option<u64> {

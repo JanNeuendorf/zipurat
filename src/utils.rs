@@ -80,10 +80,17 @@ pub fn open_remote_archive_read(
     sess.set_tcp_stream(tcp);
     sess.handshake().unwrap();
     sess.userauth_agent(user).unwrap();
+    println!("session started");
     let sftp = sess.sftp()?;
-    let remote_file = sftp.open(Path::new(filename))?;
+    let mut remote_file = sftp.open(Path::new(filename))?;
+    let mut testbuf = [0_u8; 200];
+    remote_file.seek(std::io::SeekFrom::End(-900))?;
+    remote_file.read_exact(&mut testbuf).unwrap();
+    println!("File loaded {:?}", testbuf);
 
-    return Ok(ZipArchive::new(GenericFile::Remote(remote_file))?);
+    let archive = ZipArchive::new(GenericFile::Remote(remote_file))?;
+    println!("arcive build");
+    return Ok(archive);
 }
 
 pub fn open_remote_archive_write(

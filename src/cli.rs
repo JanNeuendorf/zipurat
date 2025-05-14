@@ -31,12 +31,17 @@ pub enum Commands {
         #[arg(short, long, help = "The zstd compression level", default_value = "3")]
         compression_level: i32,
     },
-    #[command(about = "Load the contents of a single file")]
+    #[command(about = "Load the contents of a single file", alias = "cat")]
     Show {
         #[arg(help = "The path to the file")]
         path: PathBuf,
         #[arg(short, long, help = "Output file (default stdout)")]
         output: Option<PathBuf>,
+    },
+    #[command(about = "List a directory", alias = "ls")]
+    List {
+        #[arg(help = "directory to list")]
+        prefix: Option<PathBuf>,
     },
 }
 
@@ -113,6 +118,17 @@ impl Cli {
                 let mut archive = open_general_archive_read(&self.archive)?;
                 show_command(&mut archive, path, identities, output)?
             }
+            Commands::List { prefix } => {
+                println!("opening archive");
+                let mut archive = open_general_archive_read(&self.archive)?;
+                println!("done opening archive");
+                let prefix = match prefix {
+                    Some(p) => p.clone(),
+                    None => PathBuf::new(),
+                };
+
+                list_command(&mut archive, &prefix, identities)?
+            }
         };
 
         Ok(())
@@ -137,6 +153,38 @@ fn show_command(
             handle.write_all(&content)?;
             handle.flush()?;
         }
+    }
+    Ok(())
+}
+
+fn list_command(
+    archive: &mut ZipArchive<GenericFile>,
+    prefix: &Path,
+    ids: Vec<Box<dyn age::Identity>>,
+) -> Result<()> {
+    let index = Index::parse(archive, &ids)?;
+    let any = index
+        .mapping
+        .keys()
+        .filter(|p| p.starts_with(prefix))
+        .map(|p| p.strip_prefix(prefix))
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    if any.len() == 0 {
+        return Err(anyhow!("directory not found"));
+    }
+    let mut children = vec![];
+    for path in any {
+        let first = path
+            .components()
+            .into_iter()
+            .next()
+            .context("Empty entry! (It might be a file and not a directory)")?;
+        if !children.contains(&first) {
+            children.push(first);
+        }
+    }
+    for p in children {
+        println!("{}", p.as_os_str().to_string_lossy());
     }
     Ok(())
 }
