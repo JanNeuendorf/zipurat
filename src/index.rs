@@ -8,6 +8,7 @@ use anyhow::Result;
 use anyhow::anyhow;
 
 use serde::{Deserialize, Serialize};
+use zstd::zstd_safe::WriteBuf;
 
 use crate::utils::{GenericFile, blake3_hash, decompress, decrypt};
 
@@ -32,11 +33,11 @@ impl Index {
             buffer.pop();
         }
 
-        let content = decrypt(&buffer, keys)?;
+        let mut content = decrypt(&buffer, keys)?;
 
         let start = std::time::Instant::now();
 
-        let deser = serde_json::from_str(&String::from_utf8(content)?)?;
+        let deser = simd_json::serde::from_slice(content.as_mut_slice())?;
         // let deser = ciborium::from_reader(content.as_slice())?;
         dbg!(start.elapsed());
         Ok(deser)
