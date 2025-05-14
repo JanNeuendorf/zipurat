@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use std::io::Write;
 
-use crate::index::{Index, read_from_raw_index};
+use crate::index::Index;
 use crate::utils::{GenericFile, blake3_hash, compress, encrypt};
 
 fn list_all_files_recursive(dir: &Path) -> Result<Vec<PathBuf>> {
@@ -102,8 +102,10 @@ pub(crate) fn build_archive(
         sizes,
     };
 
-    let index_deser = serde_json::to_string(&index)?.as_bytes().to_vec();
-    let processed = encrypt(&compress(&index_deser, level)?, &reps)?;
+    // let index_deser = serde_json::to_string(&index)?.as_bytes().to_vec();
+    let mut index_deser = vec![];
+    ciborium::into_writer(&index, &mut index_deser)?;
+    let processed = encrypt(&index_deser, &reps)?;
     let index_start = current_index;
     archive.write_all(&processed)?;
     archive.write_all(&index_start.to_le_bytes())?;
