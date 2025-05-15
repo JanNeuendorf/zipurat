@@ -8,6 +8,7 @@ use anyhow::Result;
 use anyhow::anyhow;
 
 use serde::{Deserialize, Serialize};
+use simd_json::prelude::ArrayTrait;
 use zstd::zstd_safe::WriteBuf;
 
 use crate::utils::{GenericFile, blake3_hash, decompress, decrypt};
@@ -23,17 +24,23 @@ impl Index {
     pub fn parse(archive: &mut GenericFile, keys: &Vec<Box<dyn age::Identity>>) -> Result<Self> {
         // let len = archive.seek(std::io::SeekFrom::End(0))?;
         let mut u64_buffer = [0_u8; 8];
+        let start_prepreads = std::time::Instant::now();
+
         archive.seek(SeekFrom::End(-16))?;
         archive.read_exact(&mut u64_buffer)?;
         let index_start = u64::from_le_bytes(u64_buffer);
         archive.seek(SeekFrom::Start(index_start))?;
+        dbg!(start_prepreads.elapsed());
         let mut buffer = vec![];
+        let start_oneread = std::time::Instant::now();
         archive.read_to_end(&mut buffer)?;
         for _b in 0..16 {
             buffer.pop();
         }
-
+        dbg!(start_oneread.elapsed());
+        dbg!(&buffer.len());
         let mut content = decrypt(&buffer, keys)?;
+        // println!("{}", String::from_utf8(content.clone())?);
 
         let start = std::time::Instant::now();
 
