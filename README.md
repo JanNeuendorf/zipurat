@@ -26,7 +26,8 @@ shortcomings:
 - Optimized for access over sftp
 - Sensible encryption (Some information can leak, but not the contents of
   files.)
-- Simple and well described format (It should be possible to get your data without this repo.)
+- Simple and well described format (It should be possible to get your data
+  without this repo.)
 - Small files (thanks to deduplication and compression)
 
 ## The non-goals

@@ -8,17 +8,16 @@ use anyhow::Result;
 use anyhow::anyhow;
 
 use crate::serializer::SimpleBinRepr;
-use serde::{Deserialize, Serialize};
-use simd_json::prelude::ArrayTrait;
-use zstd::zstd_safe::WriteBuf;
 
 use crate::utils::{GenericFile, blake3_hash, decompress, decrypt};
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct Index {
     pub hashes: HashMap<(u64, u64), [u8; 32]>,
     pub mapping: HashMap<PathBuf, (u64, u64)>,
     pub sizes: HashMap<(u64, u64), u64>,
+    pub revision: u32,
+    pub variant: u32,
 }
 
 impl Index {
@@ -40,9 +39,6 @@ impl Index {
         }
         dbg!(start_oneread.elapsed());
         dbg!(&buffer.len());
-        let start_decompress_decrypt = std::time::Instant::now();
-        let content = &decrypt(&buffer, keys)?;
-        dbg!(start_decompress_decrypt.elapsed(), "decrypt only");
         let start_decompress_decrypt = std::time::Instant::now();
         let content = decompress(&decrypt(&buffer, keys)?)?;
         dbg!(start_decompress_decrypt.elapsed());

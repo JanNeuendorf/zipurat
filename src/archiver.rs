@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::io::Write;
 
 use crate::index::Index;
-use crate::serializer::{HashedBinRepr, SimpleBinRepr};
+use crate::serializer::SimpleBinRepr;
 use crate::utils::{GenericFile, blake3_hash, compress, encrypt};
 use indicatif::{ProgressBar, ProgressStyle};
 
@@ -41,6 +41,7 @@ pub(crate) fn build_archive(
     recipients: Vec<Box<dyn age::Recipient + Send>>,
     level: i32,
 ) -> Result<()> {
+    let variant = 1;
     let file_list = list_all_files_recursive(source)?;
 
     let reps: Vec<Box<&dyn age::Recipient>> = recipients
@@ -105,6 +106,8 @@ pub(crate) fn build_archive(
         mapping,
         hashes,
         sizes,
+        variant,
+        revision: 0,
     };
 
     // let index_deser = serde_json::to_string(&index)?.as_bytes().to_vec();

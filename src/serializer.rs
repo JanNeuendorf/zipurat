@@ -1,18 +1,16 @@
 use anyhow::{Context, Result, anyhow};
-use simd_json::prelude::ArrayTrait;
 use std::{
     collections::HashMap,
     io::{Read, Write},
-    path::{Path, PathBuf},
-    str::FromStr,
+    path::PathBuf,
 };
-use zstd::zstd_safe::WriteBuf;
 
-use crate::{index::Index, utils::blake3_hash};
+use crate::index::Index;
 
 pub trait SimpleBinRepr: Sized {
     fn read_bin<R: Read>(reader: &mut R) -> Result<Self>;
     fn write_bin<W: Write>(&self, writer: &mut W) -> Result<()>;
+    #[allow(unused)]
     fn simple_bin_vec(&self) -> Result<Vec<u8>> {
         let mut buffer = vec![];
         self.write_bin(&mut buffer)?;
@@ -116,6 +114,8 @@ impl<B1: SimpleBinRepr, B2: SimpleBinRepr> SimpleBinRepr for (B1, B2) {
 
 impl SimpleBinRepr for Index {
     fn read_bin<R: Read>(reader: &mut R) -> Result<Self> {
+        let revision = u32::read_bin(reader)?;
+        let variant = u32::read_bin(reader)?;
         let hash_indices: Vec<(u64, u64)> = Vec::read_bin(reader)?;
         let hashes: Vec<[u8; 32]> = Vec::read_bin(reader)?;
         let sizes: Vec<u64> = Vec::read_bin(reader)?;
@@ -141,6 +141,8 @@ impl SimpleBinRepr for Index {
             hashes: hm_hashes,
             sizes: hm_sizes,
             mapping: hm_mapping,
+            revision,
+            variant,
         })
     }
 
@@ -163,37 +165,13 @@ impl SimpleBinRepr for Index {
             map_indices.push(*mi);
             maps.push(path.clone());
         }
+        self.revision.write_bin(writer)?;
+        self.variant.write_bin(writer)?;
         hash_indices.write_bin(writer)?;
         hashes.write_bin(writer)?;
         sizes.write_bin(writer)?;
         map_indices.write_bin(writer)?;
         maps.write_bin(writer)
-    }
-}
-
-pub trait HashedBinRepr: Sized {
-    fn read_hashed_bin<R: Read>(reader: &mut R) -> Result<Self>;
-    fn write_hashed_bin<W: Write>(&self, writer: &mut W) -> Result<()>;
-}
-
-impl<S: SimpleBinRepr> HashedBinRepr for S {
-    fn read_hashed_bin<R: Read>(reader: &mut R) -> Result<Self> {
-        let hash = <[u8; 32]>::read_bin(reader)?;
-        let len = u64::read_bin(reader)?;
-        let raw = read_bytes(reader, len as usize)?;
-        if blake3_hash(&raw) != hash {
-            return Err(anyhow!("Hash of serialized data does not match"));
-        }
-        Self::read_bin(&mut raw.as_slice())
-    }
-
-    fn write_hashed_bin<W: Write>(&self, writer: &mut W) -> Result<()> {
-        let simple = self.simple_bin_vec()?;
-        let hash = blake3_hash(&simple);
-        hash.write_bin(writer)?;
-        (simple.len() as u64).write_bin(writer)?;
-        writer.write_all(&simple)?;
-        Ok(())
     }
 }
 

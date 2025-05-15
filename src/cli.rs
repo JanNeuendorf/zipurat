@@ -1,11 +1,13 @@
 use anyhow::{Context, Result, anyhow};
 use std::{
-    io::{Read, Seek, Write},
+    io::{Seek, Write},
     path::{Path, PathBuf},
 };
 
 use clap::{Parser, Subcommand};
 use humansize::{DECIMAL, format_size};
+
+use crate::serializer::SimpleBinRepr;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about =Some("Interact with zipurat archives."))]
@@ -193,11 +195,8 @@ fn list_command(
 }
 fn info_command(archive: &mut GenericFile, ids: Vec<Box<dyn age::Identity>>) -> Result<()> {
     archive.seek(std::io::SeekFrom::End(-8))?;
-    let mut u32_buffer = [0_u8; 4];
-    archive.read_exact(&mut u32_buffer)?;
-    let major_version = u32::from_le_bytes(u32_buffer);
-    archive.read_exact(&mut u32_buffer)?;
-    let minor_version = u32::from_le_bytes(u32_buffer);
+    let revision = u32::read_bin(archive)?;
+    let variant = u32::read_bin(archive)?;
 
     let index = Index::parse(archive, &ids)?;
     let mut total_size = 0 as u64;
@@ -206,7 +205,8 @@ fn info_command(archive: &mut GenericFile, ids: Vec<Box<dyn age::Identity>>) -> 
     }
     let duplicats = index.mapping.len() - index.hashes.len();
     let compressed_size = archive.seek(std::io::SeekFrom::End(0))?;
-    println!("format version: {}.{}", major_version, minor_version);
+    println!("format revision: {}", revision);
+    println!("format variant: {}", variant);
     println!("files: {}", index.mapping.len());
     println!("size original: {}", format_size(total_size, DECIMAL));
     println!("size compressed: {}", format_size(compressed_size, DECIMAL));
