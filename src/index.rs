@@ -7,6 +7,7 @@ use std::{
 use anyhow::Result;
 use anyhow::anyhow;
 
+use crate::serializer::SimpleBinRepr;
 use serde::{Deserialize, Serialize};
 use simd_json::prelude::ArrayTrait;
 use zstd::zstd_safe::WriteBuf;
@@ -15,9 +16,9 @@ use crate::utils::{GenericFile, blake3_hash, decompress, decrypt};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Index {
-    pub hashes: HashMap<u64, String>,
+    pub hashes: HashMap<(u64, u64), [u8; 32]>,
     pub mapping: HashMap<PathBuf, (u64, u64)>,
-    pub sizes: HashMap<u64, u64>,
+    pub sizes: HashMap<(u64, u64), u64>,
 }
 
 impl Index {
@@ -39,24 +40,29 @@ impl Index {
         }
         dbg!(start_oneread.elapsed());
         dbg!(&buffer.len());
-        let mut content = decrypt(&buffer, keys)?;
+        let start_decompress_decrypt = std::time::Instant::now();
+        let content = &decrypt(&buffer, keys)?;
+        dbg!(start_decompress_decrypt.elapsed(), "decrypt only");
+        let start_decompress_decrypt = std::time::Instant::now();
+        let content = decompress(&decrypt(&buffer, keys)?)?;
+        dbg!(start_decompress_decrypt.elapsed());
         // println!("{}", String::from_utf8(content.clone())?);
 
         let start = std::time::Instant::now();
 
         // let deser = simd_json::serde::from_slice(content.as_mut_slice())?;
-        let deser = ciborium::from_reader(content.as_slice())?;
+        let deser = Self::read_bin(&mut content.as_slice())?;
         dbg!(start.elapsed());
         Ok(deser)
     }
     pub fn index(&self, path: &Path) -> Option<(u64, u64)> {
         self.mapping.get(path).map(|i| i.clone())
     }
-    pub fn index_length_and_hash(&self, path: &Path) -> Result<(u64, u64, String)> {
+    pub fn index_length_and_hash(&self, path: &Path) -> Result<(u64, u64, [u8; 32])> {
         let index = self.index(path).ok_or(anyhow!("File not in index"))?;
         let hash = self
             .hashes
-            .get(&index.0)
+            .get(&index)
             .ok_or(anyhow!("File hash not found"))?;
         Ok((index.0, index.1, hash.clone()))
     }

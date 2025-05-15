@@ -120,8 +120,8 @@ impl Write for GenericFile {
     }
 }
 
-pub fn blake3_hash(data: &Vec<u8>) -> String {
+pub fn blake3_hash(data: &Vec<u8>) -> [u8; 32] {
     let hash = blake3::hash(&data);
-    hash.to_hex().to_string()
-    // *hash.as_bytes()
+    // hash.to_hex().to_string()
+    *hash.as_bytes()
 }

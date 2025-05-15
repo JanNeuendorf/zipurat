@@ -1,11 +1,11 @@
 # zipurat
 
-Zipurat is a format for deduplicated and encrypted archives and a CLI tool to
-interact with it.
+This repo contains a description of the `.zprt` archive format and a cli tool
+for interacting with it.
 
 ## Why does this exist?
 
-We all have that archive from when we stopped using a cloud service and made a
+We all have that archive from when we stopped using a cloud service or made a
 last backup from an old laptop. The files are there, probably more than once,
 but how do we use them? Usually the only way to get to a file is to copy the
 entire archive from wherever it is stored, decrypt and decompress it in its
@@ -22,11 +22,12 @@ shortcomings:
 
 ## The goals
 
+- Very fast indexing and single file access
+- Optimized for access over sftp
 - Sensible encryption (Some information can leak, but not the contents of
   files.)
-- Simple format (It should be possible to get your data without this repo.)
+- Simple and well described format (It should be possible to get your data without this repo.)
 - Small files (thanks to deduplication and compression)
-- File based access over sftp
 
 ## The non-goals
 
@@ -37,6 +38,8 @@ be slow and inconvenient because you will only do it once.
 
 There is no support for anything but file contents: no metadata, no links, not
 even empty folders.
+
+There is no error correction used inside the format.
 
 ## The design
 
@@ -51,16 +54,9 @@ just has to make a reasonable choice. Here are the choices for zipurat:
 
 ### The format
 
-zipurat uses its own binary format.
-It is, however really easy to understand.
+zipurat uses its own binary format. It is, however really easy to understand.
 
-
-The index file is a json file that contains the keys:
-
-- mapping which is a dictionary of filepaths to numbers.
-- hashes which is a dictionary of numbers to blake3 hashes.
-
-Different paths can map to the same number.
+It is detailed in ...todo!
 
 ## The name
 

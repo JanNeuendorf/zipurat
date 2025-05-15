@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::io::Write;
 
 use crate::index::Index;
+use crate::serializer::{HashedBinRepr, SimpleBinRepr};
 use crate::utils::{GenericFile, blake3_hash, compress, encrypt};
 use indicatif::{ProgressBar, ProgressStyle};
 
@@ -76,7 +77,7 @@ pub(crate) fn build_archive(
             ref_path.push(source);
             ref_path.push(c);
 
-            if fs::read(ref_path)? == raw {
+            if fs::read(ref_path)? == raw && false {
                 dedup_partner = Some(c);
                 break;
             }
@@ -84,8 +85,8 @@ pub(crate) fn build_archive(
 
         match dedup_partner {
             None => {
-                hashes.insert(current_index as u64, hash.clone());
-                sizes.insert(current_index as u64, raw_size);
+                hashes.insert((current_index as u64, chunk_len), hash.clone());
+                sizes.insert((current_index as u64, chunk_len), raw_size);
                 archive.write_all(&processed)?;
                 mapping.insert(in_path.clone(), (current_index, chunk_len));
                 dedup_hashes.push((in_path.clone(), hash.clone()));
@@ -108,8 +109,9 @@ pub(crate) fn build_archive(
 
     // let index_deser = serde_json::to_string(&index)?.as_bytes().to_vec();
     let mut index_deser = vec![];
-    ciborium::into_writer(&index, &mut index_deser)?;
-    let processed = encrypt(&index_deser, &reps)?;
+    index.write_bin(&mut index_deser)?;
+    // ciborium::into_writer(&index, &mut index_deser)?;
+    let processed = encrypt(&compress(&index_deser, 22)?, &reps)?;
     let index_start = current_index;
     archive.write_all(&processed)?;
     archive.write_all(&index_start.to_le_bytes())?;
