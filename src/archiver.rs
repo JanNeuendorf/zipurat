@@ -106,9 +106,9 @@ pub(crate) fn build_archive(
         sizes,
     };
 
-    let index_deser = serde_json::to_string(&index)?.as_bytes().to_vec();
-    // let mut index_deser = vec![];
-    // ciborium::into_writer(&index, &mut index_deser)?;
+    // let index_deser = serde_json::to_string(&index)?.as_bytes().to_vec();
+    let mut index_deser = vec![];
+    ciborium::into_writer(&index, &mut index_deser)?;
     let processed = encrypt(&index_deser, &reps)?;
     let index_start = current_index;
     archive.write_all(&processed)?;

@@ -44,8 +44,8 @@ impl Index {
 
         let start = std::time::Instant::now();
 
-        let deser = simd_json::serde::from_slice(content.as_mut_slice())?;
-        // let deser = ciborium::from_reader(content.as_slice())?;
+        // let deser = simd_json::serde::from_slice(content.as_mut_slice())?;
+        let deser = ciborium::from_reader(content.as_slice())?;
         dbg!(start.elapsed());
         Ok(deser)
     }
