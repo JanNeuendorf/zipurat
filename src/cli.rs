@@ -9,7 +9,7 @@ use std::{
 use clap::{Parser, Subcommand};
 use humansize::{DECIMAL, format_size};
 
-use crate::serializer::SimpleBinRepr;
+use crate::{restore::restore_command, serializer::SimpleBinRepr};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about =Some("Interact with zipurat archives."))]
@@ -45,6 +45,13 @@ pub enum Commands {
     List {
         #[arg(help = "directory to list")]
         prefix: Option<PathBuf>,
+    },
+    #[command(about = "Restore a file or directory from the archive", alias = "cp")]
+    Restore {
+        #[arg(help = "path to restore, defaults to whole archive")]
+        from: Option<PathBuf>,
+        #[arg(help = "output")]
+        to: PathBuf,
     },
     #[command(about = "Get the (uncompressed) size")]
     Du {
@@ -149,6 +156,15 @@ impl Cli {
                     identities,
                     *humansize,
                 )?
+            }
+            Commands::Restore { from, to } => {
+                let mut archive = open_general_archive_read(&self.archive)?;
+                let identities = load_identities(self.identity_file.as_ref())?;
+                let from = match from {
+                    Some(p) => p.clone(),
+                    None => PathBuf::new(),
+                };
+                restore_command(&mut archive, &from, to, &identities, false)?
             }
         };
 
