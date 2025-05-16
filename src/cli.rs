@@ -4,6 +4,7 @@ use std::{
     fs,
     io::{Seek, Write},
     path::{Path, PathBuf},
+    sync::atomic::AtomicBool,
 };
 
 use clap::{Parser, Subcommand};
@@ -52,6 +53,13 @@ pub enum Commands {
         from: Option<PathBuf>,
         #[arg(help = "output")]
         to: PathBuf,
+        #[arg(
+            short,
+            long,
+            help = "Do not copy if hashes match",
+            default_value = "false"
+        )]
+        trust_hashes: bool,
     },
     #[command(about = "Get the (uncompressed) size")]
     Du {
@@ -157,14 +165,18 @@ impl Cli {
                     *humansize,
                 )?
             }
-            Commands::Restore { from, to } => {
+            Commands::Restore {
+                from,
+                to,
+                trust_hashes,
+            } => {
                 let mut archive = open_general_archive_read(&self.archive)?;
                 let identities = load_identities(self.identity_file.as_ref())?;
                 let from = match from {
                     Some(p) => p.clone(),
                     None => PathBuf::new(),
                 };
-                restore_command(&mut archive, &from, to, &identities, false)?
+                restore_command(&mut archive, &from, to, &identities, *trust_hashes)?
             }
         };
 
