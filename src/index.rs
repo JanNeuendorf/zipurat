@@ -65,6 +65,19 @@ impl Index {
             Ok(content)
         }
     }
+    pub fn is_file(&self, path: &Path) -> bool {
+        self.mapping.contains_key(path)
+    }
+    pub fn is_dir(&self, path: &Path) -> bool {
+        if self.is_file(path) {
+            return false;
+        }
+        self.mapping
+            .keys()
+            .filter(|k| k.starts_with(path))
+            .next()
+            .is_some()
+    }
 }
 pub fn read_from_raw_index(
     archive: &mut GenericFile,

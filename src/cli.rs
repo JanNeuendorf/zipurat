@@ -1,4 +1,5 @@
 use anyhow::{Context, Result, anyhow};
+use colored::*;
 use std::{
     fs,
     io::{Seek, Write},
@@ -187,7 +188,11 @@ fn list_command(
         }
     }
     for p in children {
-        println!("{}", p.as_os_str().to_string_lossy());
+        if index.is_file(&prefix.join(p)) {
+            println!("{}", p.as_os_str().to_string_lossy());
+        } else {
+            println!("{}", p.as_os_str().to_string_lossy().blue().bold());
+        }
     }
     Ok(())
 }
