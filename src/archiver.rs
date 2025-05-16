@@ -17,7 +17,8 @@ fn list_all_files_recursive(dir: &Path) -> Result<Vec<PathBuf>> {
 }
 
 fn recurse_dir(root: &Path, dir: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
-    for entry in fs::read_dir(dir)? {
+    let ls = fs::read_dir(dir)?.collect::<Vec<_>>();
+    for entry in ls {
         let entry = entry?;
         let path = entry.path();
 
@@ -32,6 +33,7 @@ fn recurse_dir(root: &Path, dir: &Path, files: &mut Vec<PathBuf>) -> Result<()> 
             // return Err(anyhow!("Non file object {}", path.to_string_lossy()));
         }
     }
+
     Ok(())
 }
 
@@ -115,7 +117,7 @@ pub(crate) fn build_archive(
     archive.write_all(&index_start.to_le_bytes())?;
     archive.write_all(&(0 as u32).to_le_bytes())?;
     archive.write_all(&(1 as u32).to_le_bytes())?;
-    pb.finish_with_message("Archive written");
+    pb.finish_and_clear();
     Ok(())
 }
 

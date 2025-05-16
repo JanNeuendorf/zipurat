@@ -3,6 +3,7 @@ use crate::{
     utils::{GenericFile, blake3_hash},
 };
 use anyhow::{Result, anyhow};
+use indicatif::{ProgressBar, ProgressStyle};
 use std::{
     fs,
     io::{Read, Write},
@@ -53,7 +54,12 @@ fn copy_directory(
         .filter(|p| p.starts_with(from))
         .map(|p| p.strip_prefix(from))
         .collect::<std::result::Result<Vec<_>, _>>()?;
-    for c in children {
+    let pb = ProgressBar::new(children.len() as u64);
+    pb.set_style(ProgressStyle::with_template("{bar:40} {pos:>7}/{len:7}  eta:{eta}").unwrap());
+
+    for (i, c) in children.iter().enumerate() {
+        pb.set_position(i as u64);
+
         let from_path = from.join(c);
         let to_path = to.join(c);
         if trust && to_path.exists() {
@@ -65,11 +71,14 @@ fn copy_directory(
                 continue;
             }
         }
-        if let Some(parent) = from_path.parent() {
+        // dbg!(from_path, to_path);
+        // continue;
+        if let Some(parent) = to_path.parent() {
             fs::create_dir_all(parent)?;
         }
         let content = index.read_file(archive, &from_path, ids)?;
         fs::File::create(&to_path)?.write_all(&content)?;
     }
+    pb.finish_and_clear();
     Ok(())
 }

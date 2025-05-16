@@ -4,7 +4,6 @@ use std::{
     fs,
     io::{Seek, Write},
     path::{Path, PathBuf},
-    sync::atomic::AtomicBool,
 };
 
 use clap::{Parser, Subcommand};
@@ -47,9 +46,13 @@ pub enum Commands {
         #[arg(help = "directory to list")]
         prefix: Option<PathBuf>,
     },
-    #[command(about = "Restore a file or directory from the archive", alias = "cp")]
+    #[command(about = "Restore a file or directory from the archive")]
     Restore {
-        #[arg(help = "path to restore, defaults to whole archive")]
+        #[arg(
+            long,
+            help = "path to restore, defaults to the whole archive",
+            alias = "path"
+        )]
         from: Option<PathBuf>,
         #[arg(help = "output")]
         to: PathBuf,
