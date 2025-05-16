@@ -1,5 +1,6 @@
 use anyhow::{Context, Result, anyhow};
 use std::{
+    fs,
     io::{Seek, Write},
     path::{Path, PathBuf},
 };
@@ -99,11 +100,6 @@ fn load_identities(path: &str) -> Result<Vec<Box<dyn age::Identity>>> {
 
 impl Cli {
     pub fn run(&self) -> Result<()> {
-        let recipients = load_recipients(
-            self.identity_file
-                .to_str()
-                .context("Path not a valid string")?,
-        )?;
         let identities = load_identities(
             self.identity_file
                 .to_str()
@@ -114,6 +110,11 @@ impl Cli {
                 source,
                 compression_level,
             } => {
+                let recipients = load_recipients(
+                    self.identity_file
+                        .to_str()
+                        .context("Path not a valid string")?,
+                )?;
                 let mut archive = open_general_archive_write(&self.archive)?;
                 build_archive(source, &mut archive, recipients, *compression_level)?
             }
@@ -216,4 +217,35 @@ fn info_command(archive: &mut GenericFile, ids: Vec<Box<dyn age::Identity>>) -> 
     );
     println!("duplicate files: {}", duplicats);
     Ok(())
+}
+
+fn load_user_identities() -> Result<Vec<Box<dyn age::Identity>>> {
+    let mut all_ids = vec![];
+    let dir = dirs::home_dir()
+        .map(|home| home.join(".ssh").join("zipurat"))
+        .context("Home directory not found")?;
+    let entries: Vec<_> = fs::read_dir(&dir)?
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| path.is_file())
+        .collect();
+    for f in entries {
+        let idf = age::IdentityFile::from_file(
+            f.to_str()
+                .context("Non utf8 file in zipurat dir")?
+                .to_string(),
+        );
+        if let Ok(idf) = idf {
+            if let Ok(mut ids) = idf.into_identities() {
+                all_ids.append(&mut ids);
+            }
+        }
+    }
+    if all_ids.is_empty() {
+        return Err(anyhow!(
+            "No valid age IDs found in {}",
+            dir.to_string_lossy()
+        ));
+    }
+    Ok(all_ids)
 }
