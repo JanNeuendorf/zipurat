@@ -121,6 +121,7 @@ impl SimpleBinRepr for Index {
         let sizes: Vec<u64> = Vec::read_bin(reader)?;
         let mapping_indices: Vec<(u64, u64)> = Vec::read_bin(reader)?;
         let maps: Vec<PathBuf> = Vec::read_bin(reader)?;
+        let empty_dirs: Vec<PathBuf> = Vec::read_bin(reader)?;
 
         if hash_indices.len() != hashes.len() {
             return Err(anyhow!("Malformed index"));
@@ -143,6 +144,7 @@ impl SimpleBinRepr for Index {
             mapping: hm_mapping,
             revision,
             variant,
+            empty_dirs,
         })
     }
 
@@ -171,7 +173,8 @@ impl SimpleBinRepr for Index {
         hashes.write_bin(writer)?;
         sizes.write_bin(writer)?;
         map_indices.write_bin(writer)?;
-        maps.write_bin(writer)
+        maps.write_bin(writer)?;
+        self.empty_dirs.write_bin(writer)
     }
 }
 

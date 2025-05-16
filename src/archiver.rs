@@ -12,11 +12,16 @@ use indicatif::{ProgressBar, ProgressStyle};
 
 fn list_all_files_recursive(dir: &Path) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
-    recurse_dir(dir, dir, &mut files)?;
+    recurse_dir_files(dir, dir, &mut files)?;
     Ok(files)
 }
+fn list_all_empty_dirs(dir: &Path) -> Result<Vec<PathBuf>> {
+    let mut empties = Vec::new();
+    recurse_dir_empties(dir, dir, &mut empties)?;
+    Ok(empties)
+}
 
-fn recurse_dir(root: &Path, dir: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
+fn recurse_dir_files(root: &Path, dir: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
     let ls = fs::read_dir(dir)?.collect::<Vec<_>>();
     for entry in ls {
         let entry = entry?;
@@ -24,13 +29,32 @@ fn recurse_dir(root: &Path, dir: &Path, files: &mut Vec<PathBuf>) -> Result<()> 
 
         if path.is_dir() {
             // Recurse into subdirectories
-            recurse_dir(root, &path, files)?;
+            recurse_dir_files(root, &path, files)?;
         } else if path.is_file() {
             if let Ok(relative_path) = path.strip_prefix(root) {
                 files.push(relative_path.to_path_buf());
             }
         } else {
+            println!("Ignoring non file object {}", path.to_string_lossy());
             // return Err(anyhow!("Non file object {}", path.to_string_lossy()));
+        }
+    }
+
+    Ok(())
+}
+fn recurse_dir_empties(root: &Path, dir: &Path, empties: &mut Vec<PathBuf>) -> Result<()> {
+    let ls = fs::read_dir(dir)?.collect::<Vec<_>>();
+    for entry in ls {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            if fs::read_dir(&path)?.next().is_none() {
+                if let Ok(relative_path) = path.strip_prefix(root) {
+                    empties.push(relative_path.to_path_buf());
+                }
+            } else {
+                recurse_dir_empties(root, &path, empties)?;
+            }
         }
     }
 
@@ -45,6 +69,7 @@ pub(crate) fn build_archive(
 ) -> Result<()> {
     let variant = 1;
     let file_list = list_all_files_recursive(source)?;
+    let empty_dirs = list_all_empty_dirs(source)?;
 
     let mut hashes = HashMap::new();
     let mut dedup_hashes = vec![];
@@ -105,6 +130,7 @@ pub(crate) fn build_archive(
         sizes,
         variant,
         revision: 0,
+        empty_dirs,
     };
 
     // let index_deser = serde_json::to_string(&index)?.as_bytes().to_vec();

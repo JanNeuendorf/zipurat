@@ -71,7 +71,6 @@ fn copy_directory(
                 continue;
             }
         }
-        // dbg!(from_path, to_path);
         // continue;
         if let Some(parent) = to_path.parent() {
             fs::create_dir_all(parent)?;
@@ -80,5 +79,16 @@ fn copy_directory(
         fs::File::create(&to_path)?.write_all(&content)?;
     }
     pb.finish_and_clear();
+    let empties = index
+        .empty_dirs
+        .iter()
+        .filter(|p| p.starts_with(from))
+        .map(|p| p.strip_prefix(from))
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    for e in empties {
+        let to_path = to.join(e);
+        fs::create_dir_all(to_path)?;
+    }
     Ok(())
 }

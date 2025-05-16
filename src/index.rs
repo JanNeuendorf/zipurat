@@ -16,6 +16,7 @@ pub struct Index {
     pub hashes: HashMap<(u64, u64), [u8; 32]>,
     pub mapping: HashMap<PathBuf, (u64, u64)>,
     pub sizes: HashMap<(u64, u64), u64>,
+    pub empty_dirs: Vec<PathBuf>,
     pub revision: u32,
     pub variant: u32,
 }
