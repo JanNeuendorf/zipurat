@@ -18,7 +18,7 @@ pub struct Cli {
     archive: String,
 
     #[arg(long, short, help = "The age identity file")]
-    identity_file: PathBuf,
+    identity_file: Option<PathBuf>,
 
     #[command(subcommand)]
     pub command: Commands,
@@ -94,17 +94,9 @@ fn parse_sftp_url(s: &str) -> Result<(String, String, u64, String)> {
 fn load_recipients(path: &str) -> Result<Vec<Box<dyn age::Recipient + Send>>> {
     Ok(age::IdentityFile::from_file(path.to_string())?.to_recipients()?)
 }
-fn load_identities(path: &str) -> Result<Vec<Box<dyn age::Identity>>> {
-    Ok(age::IdentityFile::from_file(path.to_string())?.into_identities()?)
-}
 
 impl Cli {
     pub fn run(&self) -> Result<()> {
-        let identities = load_identities(
-            self.identity_file
-                .to_str()
-                .context("Path not a valid string")?,
-        )?;
         match &self.command {
             Commands::Create {
                 source,
@@ -112,6 +104,8 @@ impl Cli {
             } => {
                 let recipients = load_recipients(
                     self.identity_file
+                        .as_ref()
+                        .context("Recipient file must be provided")?
                         .to_str()
                         .context("Path not a valid string")?,
                 )?;
@@ -119,11 +113,13 @@ impl Cli {
                 build_archive(source, &mut archive, recipients, *compression_level)?
             }
             Commands::Show { path, output } => {
+                let identities = load_identities(self.identity_file.as_ref())?;
                 let mut archive = open_general_archive_read(&self.archive)?;
                 show_command(&mut archive, path, identities, output)?
             }
             Commands::List { prefix } => {
                 let mut archive = open_general_archive_read(&self.archive)?;
+                let identities = load_identities(self.identity_file.as_ref())?;
                 let prefix = match prefix {
                     Some(p) => p.clone(),
                     None => PathBuf::new(),
@@ -133,6 +129,7 @@ impl Cli {
             }
             Commands::Info {} => {
                 let mut archive = open_general_archive_read(&self.archive)?;
+                let identities = load_identities(self.identity_file.as_ref())?;
                 info_command(&mut archive, identities)?
             }
         };
@@ -219,12 +216,20 @@ fn info_command(archive: &mut GenericFile, ids: Vec<Box<dyn age::Identity>>) -> 
     Ok(())
 }
 
-fn load_user_identities() -> Result<Vec<Box<dyn age::Identity>>> {
+fn load_identities(provided: Option<&PathBuf>) -> Result<Vec<Box<dyn age::Identity>>> {
+    if let Some(file) = provided {
+        let ids = age::IdentityFile::from_file(
+            file.to_str().context("Invalid path for IDs")?.to_string(),
+        )?
+        .into_identities()?;
+        return Ok(ids);
+    }
     let mut all_ids = vec![];
-    let dir = dirs::home_dir()
-        .map(|home| home.join(".ssh").join("zipurat"))
+    let dir = dirs::config_dir()
+        .map(|cfg| cfg.join("age"))
         .context("Home directory not found")?;
-    let entries: Vec<_> = fs::read_dir(&dir)?
+    let entries: Vec<_> = fs::read_dir(&dir)
+        .context(format!("{} not found", dir.to_string_lossy()))?
         .filter_map(Result::ok)
         .map(|entry| entry.path())
         .filter(|path| path.is_file())
