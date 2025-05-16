@@ -12,8 +12,16 @@ pub fn compress(input: &Vec<u8>, level: i32) -> Result<Vec<u8>> {
     Ok(compressor.compress(input.as_slice())?)
 }
 
-pub fn encrypt(input: &Vec<u8>, keys: &Vec<Box<&dyn age::Recipient>>) -> Result<Vec<u8>> {
-    let encryptor = age::Encryptor::with_recipients(keys.iter().map(|k| *k.as_ref()))?;
+pub fn encrypt(
+    input: &Vec<u8>,
+    recipients: &Vec<Box<dyn age::Recipient + Send>>,
+) -> Result<Vec<u8>> {
+    let reps: Vec<Box<&dyn age::Recipient>> = recipients
+        .iter()
+        .map(|r| r.as_ref() as &dyn age::Recipient)
+        .map(|r| Box::new(r))
+        .collect();
+    let encryptor = age::Encryptor::with_recipients(reps.iter().map(|k| *k.as_ref()))?;
     let mut encrypted = vec![];
     let mut writer = encryptor.wrap_output(&mut encrypted)?;
     writer.write_all(input)?;

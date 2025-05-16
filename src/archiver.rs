@@ -44,11 +44,6 @@ pub(crate) fn build_archive(
     let variant = 1;
     let file_list = list_all_files_recursive(source)?;
 
-    let reps: Vec<Box<&dyn age::Recipient>> = recipients
-        .iter()
-        .map(|r| r.as_ref() as &dyn age::Recipient)
-        .map(|r| Box::new(r))
-        .collect();
     let mut hashes = HashMap::new();
     let mut dedup_hashes = vec![];
     let mut mapping = HashMap::new();
@@ -65,7 +60,7 @@ pub(crate) fn build_archive(
         let raw = fs::read(&read_path)?;
         let raw_size = raw.len() as u64;
         let hash = blake3_hash(&raw);
-        let processed = encrypt(&compress(&raw, level)?, &reps)?;
+        let processed = encrypt(&compress(&raw, level)?, &recipients)?;
         let chunk_len = processed.len() as u64;
         let candidates = dedup_hashes
             .iter()
@@ -78,7 +73,7 @@ pub(crate) fn build_archive(
             ref_path.push(source);
             ref_path.push(c);
 
-            if fs::read(ref_path)? == raw && false {
+            if fs::read(ref_path)? == raw {
                 dedup_partner = Some(c);
                 break;
             }
@@ -114,7 +109,7 @@ pub(crate) fn build_archive(
     let mut index_deser = vec![];
     index.write_bin(&mut index_deser)?;
     // ciborium::into_writer(&index, &mut index_deser)?;
-    let processed = encrypt(&compress(&index_deser, 22)?, &reps)?;
+    let processed = encrypt(&compress(&index_deser, 22)?, &recipients)?;
     let index_start = current_index;
     archive.write_all(&processed)?;
     archive.write_all(&index_start.to_le_bytes())?;

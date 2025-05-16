@@ -22,33 +22,20 @@ pub struct Index {
 
 impl Index {
     pub fn parse(archive: &mut GenericFile, keys: &Vec<Box<dyn age::Identity>>) -> Result<Self> {
-        // let len = archive.seek(std::io::SeekFrom::End(0))?;
         let mut u64_buffer = [0_u8; 8];
-        let start_prepreads = std::time::Instant::now();
 
         archive.seek(SeekFrom::End(-16))?;
         archive.read_exact(&mut u64_buffer)?;
         let index_start = u64::from_le_bytes(u64_buffer);
         archive.seek(SeekFrom::Start(index_start))?;
-        dbg!(start_prepreads.elapsed());
         let mut buffer = vec![];
-        let start_oneread = std::time::Instant::now();
         archive.read_to_end(&mut buffer)?;
         for _b in 0..16 {
             buffer.pop();
         }
-        dbg!(start_oneread.elapsed());
-        dbg!(&buffer.len());
-        let start_decompress_decrypt = std::time::Instant::now();
         let content = decompress(&decrypt(&buffer, keys)?)?;
-        dbg!(start_decompress_decrypt.elapsed());
-        // println!("{}", String::from_utf8(content.clone())?);
 
-        let start = std::time::Instant::now();
-
-        // let deser = simd_json::serde::from_slice(content.as_mut_slice())?;
         let deser = Self::read_bin(&mut content.as_slice())?;
-        dbg!(start.elapsed());
         Ok(deser)
     }
     pub fn index(&self, path: &Path) -> Option<(u64, u64)> {
