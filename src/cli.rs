@@ -7,7 +7,7 @@ use std::{
 };
 
 use clap::{Parser, Subcommand};
-use humansize::{DECIMAL, format_size};
+use humansize::{DECIMAL, format_size, format_size_i};
 
 use crate::serializer::SimpleBinRepr;
 
@@ -160,6 +160,13 @@ fn show_command(
     }
     Ok(())
 }
+fn du_command(
+    archive: &mut GenericFile,
+    path: &Path,
+    ids: Vec<Box<dyn age::Identity>>,
+) -> Result<()> {
+    todo!()
+}
 
 fn list_command(
     archive: &mut GenericFile,
@@ -189,9 +196,15 @@ fn list_command(
     }
     for p in children {
         if index.is_file(&prefix.join(p)) {
-            println!("{}", p.as_os_str().to_string_lossy());
+            let size = index.du(&prefix.join(p))?;
+            let size_fmt = format_size(size, DECIMAL);
+            println!("{:12} {}", size_fmt, p.as_os_str().to_string_lossy());
         } else {
-            println!("{}", p.as_os_str().to_string_lossy().blue().bold());
+            println!(
+                "{:12} {}",
+                "-".blue().bold(),
+                p.as_os_str().to_string_lossy().blue().bold()
+            );
         }
     }
     Ok(())
@@ -199,7 +212,7 @@ fn list_command(
 fn info_command(archive: &mut GenericFile, ids: Vec<Box<dyn age::Identity>>) -> Result<()> {
     archive.seek(std::io::SeekFrom::End(-8))?;
     let revision = u32::read_bin(archive)?;
-    let variant = u32::read_bin(archive)?;
+    let _variant = u32::read_bin(archive)?;
 
     let index = Index::parse(archive, &ids)?;
     let mut total_size = 0 as u64;
@@ -209,7 +222,7 @@ fn info_command(archive: &mut GenericFile, ids: Vec<Box<dyn age::Identity>>) -> 
     let duplicats = index.mapping.len() - index.hashes.len();
     let compressed_size = archive.seek(std::io::SeekFrom::End(0))?;
     println!("format revision: {}", revision);
-    println!("format variant: {}", variant);
+    // println!("format variant: {}", _variant);
     println!("files: {}", index.mapping.len());
     println!("size original: {}", format_size(total_size, DECIMAL));
     println!("size compressed: {}", format_size(compressed_size, DECIMAL));

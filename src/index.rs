@@ -4,8 +4,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::Result;
 use anyhow::anyhow;
+use anyhow::{Context, Result};
 
 use crate::serializer::SimpleBinRepr;
 
@@ -77,6 +77,23 @@ impl Index {
             .filter(|k| k.starts_with(path))
             .next()
             .is_some()
+    }
+    pub fn du(&self, path: &Path) -> Result<u64> {
+        if self.is_file(path) {
+            let mapping = self.mapping.get(path).context("invalid path")?;
+            self.sizes
+                .get(mapping)
+                .context("Size not in index")
+                .copied()
+        } else {
+            let children = self
+                .mapping
+                .keys()
+                .filter(|k| k.starts_with(path))
+                .map(|f| self.du(f))
+                .collect::<Result<Vec<_>>>()?;
+            Ok(children.iter().sum())
+        }
     }
 }
 pub fn read_from_raw_index(
