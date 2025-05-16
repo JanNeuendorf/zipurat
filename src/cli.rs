@@ -7,7 +7,7 @@ use std::{
 };
 
 use clap::{Parser, Subcommand};
-use humansize::{DECIMAL, format_size, format_size_i};
+use humansize::{DECIMAL, format_size};
 
 use crate::serializer::SimpleBinRepr;
 
@@ -45,6 +45,13 @@ pub enum Commands {
     List {
         #[arg(help = "directory to list")]
         prefix: Option<PathBuf>,
+    },
+    #[command(about = "Get the (uncompressed) size")]
+    Du {
+        #[arg(help = "path")]
+        path: Option<PathBuf>,
+        #[arg(short, help = "Human readable", default_value = "false")]
+        humansize: bool,
     },
     #[command(about = "Get archive information")]
     Info {},
@@ -133,6 +140,16 @@ impl Cli {
                 let identities = load_identities(self.identity_file.as_ref())?;
                 info_command(&mut archive, identities)?
             }
+            Commands::Du { path, humansize } => {
+                let mut archive = open_general_archive_read(&self.archive)?;
+                let identities = load_identities(self.identity_file.as_ref())?;
+                du_command(
+                    &mut archive,
+                    path.as_ref().unwrap_or(&PathBuf::new()),
+                    identities,
+                    *humansize,
+                )?
+            }
         };
 
         Ok(())
@@ -164,8 +181,16 @@ fn du_command(
     archive: &mut GenericFile,
     path: &Path,
     ids: Vec<Box<dyn age::Identity>>,
+    hflag: bool,
 ) -> Result<()> {
-    todo!()
+    let index = Index::parse(archive, &ids)?;
+    let size = index.du(path)?;
+    if hflag {
+        println!("{}", format_size(size, DECIMAL))
+    } else {
+        println!("{size}");
+    }
+    Ok(())
 }
 
 fn list_command(

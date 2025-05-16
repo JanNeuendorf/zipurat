@@ -68,6 +68,7 @@ impl Index {
     pub fn is_file(&self, path: &Path) -> bool {
         self.mapping.contains_key(path)
     }
+    #[allow(unused)]
     pub fn is_dir(&self, path: &Path) -> bool {
         if self.is_file(path) {
             return false;
