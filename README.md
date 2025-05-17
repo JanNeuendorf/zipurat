@@ -104,18 +104,13 @@ Commands:
 
 ## The design
 
-### Existing technologies
-
-There is no need to reinvent any of the underlying tecnologies or formats. One
-just has to make a reasonable choice. Here are the choices for zipurat:
-
-- age for encryption
-- zstd for compression
-- blake3 for hashes
+The Idea is very simple, all files are compressed and encrypted individually and and an index is stored at the end. 
+The index is compressed and encryptet too. It is relatively small to minimize the cost of reading it.
 
 ### The format
 
 zipurat uses its own binary format. It is, however really easy to understand.
+It is just a wrapper around age and zstd with a custom file index. 
 
 It is detailed in ...todo!
 
