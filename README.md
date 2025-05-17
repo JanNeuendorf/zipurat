@@ -37,8 +37,8 @@ backups and want to organize them differently. This is not meant to deal with
 datasets that are still evolving. Therefore, creating the archive is allowed to
 be slow and inconvenient because you will only do it once.
 
-There is no support for anything but file contents: no metadata, no links, not
-even empty folders.
+There is no support for anything but file contents: no metadata, no links. The
+only exception are empty directories.
 
 There is no error correction used inside the format.
 

@@ -68,6 +68,9 @@ pub(crate) fn build_archive(
     level: i32,
 ) -> Result<()> {
     let variant = 1;
+    let revision = 0;
+    revision.write_bin(archive)?;
+    variant.write_bin(archive)?;
     let file_list = list_all_files_recursive(source)?;
     let empty_dirs = list_all_empty_dirs(source)?;
 
@@ -75,7 +78,7 @@ pub(crate) fn build_archive(
     let mut dedup_hashes = vec![];
     let mut mapping = HashMap::new();
     let mut sizes = HashMap::new();
-    let mut current_index = 0;
+    let mut current_index = 8;
     let pb = ProgressBar::new(file_list.len() as u64);
     pb.set_style(ProgressStyle::with_template("{bar:40} {pos:>7}/{len:7}  eta:{eta}").unwrap());
 
@@ -129,20 +132,18 @@ pub(crate) fn build_archive(
         hashes,
         sizes,
         variant,
-        revision: 0,
+        revision,
         empty_dirs,
     };
 
-    // let index_deser = serde_json::to_string(&index)?.as_bytes().to_vec();
     let mut index_deser = vec![];
     index.write_bin(&mut index_deser)?;
-    // ciborium::into_writer(&index, &mut index_deser)?;
     let processed = encrypt(&compress(&index_deser, 22)?, &recipients)?;
     let index_start = current_index;
     archive.write_all(&processed)?;
-    archive.write_all(&index_start.to_le_bytes())?;
-    archive.write_all(&(0 as u32).to_le_bytes())?;
-    archive.write_all(&(1 as u32).to_le_bytes())?;
+    index_start.write_bin(archive)?;
+    revision.write_bin(archive)?;
+    variant.write_bin(archive)?;
     pb.finish_and_clear();
     Ok(())
 }
