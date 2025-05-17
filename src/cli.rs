@@ -288,7 +288,6 @@ fn info_command(archive: &mut GenericFile, ids: Vec<Box<dyn age::Identity>>) -> 
     );
     println!("duplicate files: {}", duplicats);
     println!("empty directories: {}", index.empty_dirs.len());
-    dbg!(index.empty_dirs);
     Ok(())
 }
 

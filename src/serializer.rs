@@ -90,14 +90,22 @@ impl<B: SimpleBinRepr> SimpleBinRepr for Vec<B> {
 
 impl SimpleBinRepr for PathBuf {
     fn read_bin<R: Read>(reader: &mut R) -> Result<Self> {
-        let string = String::read_bin(reader)?;
-        let pb = PathBuf::from(string);
+        let components: Vec<String> = Vec::read_bin(reader)?;
+        let mut pb = PathBuf::new();
+        for c in components {
+            pb = pb.join(c);
+        }
         Ok(pb)
     }
 
     fn write_bin<W: Write>(&self, writer: &mut W) -> Result<()> {
-        let string = self.to_str().context("Path not valid utf8")?.to_string();
-        string.write_bin(writer)
+        let components: Option<Vec<_>> = self
+            .components()
+            .map(|c| c.as_os_str().to_str().map(|o| o.to_string()))
+            .collect();
+        let components = components.context("Invalid path components")?;
+        components.write_bin(writer)?;
+        Ok(())
     }
 }
 
