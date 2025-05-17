@@ -9,6 +9,9 @@ use crate::index::Index;
 use crate::serializer::SimpleBinRepr;
 use crate::utils::{GenericFile, blake3_hash, compress, encrypt};
 use indicatif::{ProgressBar, ProgressStyle};
+use rand::seq::SliceRandom;
+use rand::{RngCore, SeedableRng};
+use rand_chacha::ChaCha20Rng;
 
 fn list_all_files_recursive(dir: &Path) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
@@ -69,8 +72,12 @@ pub(crate) fn build_archive(
 ) -> Result<()> {
     let magic_number = 12219678139600706333_u64;
     magic_number.write_bin(archive)?;
-    let file_list = list_all_files_recursive(source)?;
-    let empty_dirs = list_all_empty_dirs(source)?;
+    let mut file_list = list_all_files_recursive(source)?;
+    let mut empty_dirs = list_all_empty_dirs(source)?;
+    let mut rng = ChaCha20Rng::from_os_rng();
+
+    file_list.shuffle(&mut rng);
+    empty_dirs.shuffle(&mut rng);
 
     let mut hashes = HashMap::new();
     let mut dedup_hashes = vec![];
