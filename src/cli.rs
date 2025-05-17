@@ -267,8 +267,7 @@ fn list_command(
 }
 fn info_command(archive: &mut GenericFile, ids: Vec<Box<dyn age::Identity>>) -> Result<()> {
     archive.seek(std::io::SeekFrom::End(-8))?;
-    let revision = u32::read_bin(archive)?;
-    let _variant = u32::read_bin(archive)?;
+    let magic_number = u64::read_bin(archive)?;
 
     let index = Index::parse(archive, &ids)?;
     let mut total_size = 0 as u64;
@@ -277,7 +276,7 @@ fn info_command(archive: &mut GenericFile, ids: Vec<Box<dyn age::Identity>>) -> 
     }
     let duplicats = index.mapping.len() - index.hashes.len();
     let compressed_size = archive.seek(std::io::SeekFrom::End(0))?;
-    println!("format revision: {}", revision);
+    println!("magic number: {:X}", magic_number);
     // println!("format variant: {}", _variant);
     println!("files: {}", index.mapping.len());
     println!("size original: {}", format_size(total_size, DECIMAL));

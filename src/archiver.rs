@@ -67,10 +67,8 @@ pub(crate) fn build_archive(
     recipients: Vec<Box<dyn age::Recipient + Send>>,
     level: i32,
 ) -> Result<()> {
-    let variant = 1;
-    let revision = 0;
-    revision.write_bin(archive)?;
-    variant.write_bin(archive)?;
+    let magic_number = 12219678139600706333_u64;
+    magic_number.write_bin(archive)?;
     let file_list = list_all_files_recursive(source)?;
     let empty_dirs = list_all_empty_dirs(source)?;
 
@@ -131,8 +129,7 @@ pub(crate) fn build_archive(
         mapping,
         hashes,
         sizes,
-        variant,
-        revision,
+        magic_number,
         empty_dirs,
     };
 
@@ -142,8 +139,7 @@ pub(crate) fn build_archive(
     let index_start = current_index;
     archive.write_all(&processed)?;
     index_start.write_bin(archive)?;
-    revision.write_bin(archive)?;
-    variant.write_bin(archive)?;
+    magic_number.write_bin(archive)?;
     pb.finish_and_clear();
     Ok(())
 }

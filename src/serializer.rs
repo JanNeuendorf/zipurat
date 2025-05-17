@@ -29,17 +29,6 @@ impl SimpleBinRepr for u64 {
         Ok(())
     }
 }
-impl SimpleBinRepr for u32 {
-    fn read_bin<R: Read>(reader: &mut R) -> Result<Self> {
-        let bytes = read_bytes_const::<R, 4>(reader)?;
-        Ok(u32::from_le_bytes(bytes))
-    }
-
-    fn write_bin<W: Write>(&self, writer: &mut W) -> Result<()> {
-        writer.write(&self.to_le_bytes())?;
-        Ok(())
-    }
-}
 
 impl<const N: usize> SimpleBinRepr for [u8; N] {
     fn read_bin<R: Read>(reader: &mut R) -> Result<Self> {
@@ -122,8 +111,7 @@ impl<B1: SimpleBinRepr, B2: SimpleBinRepr> SimpleBinRepr for (B1, B2) {
 
 impl SimpleBinRepr for Index {
     fn read_bin<R: Read>(reader: &mut R) -> Result<Self> {
-        let revision = u32::read_bin(reader)?;
-        let variant = u32::read_bin(reader)?;
+        let magic_number = u64::read_bin(reader)?;
         let hash_indices: Vec<(u64, u64)> = Vec::read_bin(reader)?;
         let hashes: Vec<[u8; 32]> = Vec::read_bin(reader)?;
         let sizes: Vec<u64> = Vec::read_bin(reader)?;
@@ -150,8 +138,7 @@ impl SimpleBinRepr for Index {
             hashes: hm_hashes,
             sizes: hm_sizes,
             mapping: hm_mapping,
-            revision,
-            variant,
+            magic_number,
             empty_dirs,
         })
     }
@@ -175,8 +162,7 @@ impl SimpleBinRepr for Index {
             map_indices.push(*mi);
             maps.push(path.clone());
         }
-        self.revision.write_bin(writer)?;
-        self.variant.write_bin(writer)?;
+        self.magic_number.write_bin(writer)?;
         hash_indices.write_bin(writer)?;
         hashes.write_bin(writer)?;
         sizes.write_bin(writer)?;
