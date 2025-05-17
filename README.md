@@ -1,4 +1,6 @@
-# zipurat
+<div align="center">
+<img src="assets/zipurat_edit.png" alt="Logo" width="400"/>
+  </div>
 
 This repo contains a description of the `.zprt` archive format and a cli tool
 for interacting with it.
