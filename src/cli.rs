@@ -15,10 +15,10 @@ use crate::{restore::restore_command, serializer::SimpleBinRepr};
 #[command(version, about, long_about =Some("Interact with zipurat archives."))]
 #[command(propagate_version = true)]
 pub struct Cli {
-    #[arg(help = "The archive to interact with (can be sftp)")]
+    #[arg(help = "The archive to interact with (can be sftp://...)")]
     archive: String,
 
-    #[arg(long, short, help = "The age identity file")]
+    #[arg(long, short, help = "Specific age identity file")]
     identity_file: Option<PathBuf>,
 
     #[command(subcommand)]
@@ -34,7 +34,7 @@ pub enum Commands {
         #[arg(short, long, help = "The zstd compression level", default_value = "3")]
         compression_level: i32,
     },
-    #[command(about = "Load the contents of a single file", alias = "cat")]
+    #[command(about = "Show the contents of a single file", alias = "cat")]
     Show {
         #[arg(help = "The path to the file")]
         path: PathBuf,
@@ -59,7 +59,7 @@ pub enum Commands {
         #[arg(
             short,
             long,
-            help = "Do not copy if hashes match",
+            help = "Do not copy files if hashes already match",
             default_value = "false"
         )]
         trust_hashes: bool,
