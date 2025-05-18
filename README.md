@@ -107,18 +107,16 @@ Commands:
   info     Get archive information
 ```
 
-## The design
+## The format
+
+zipurat uses its own binary format. It is just a wrapper around age and zstd
+with a custom file index.
 
 The Idea is very simple, all files are compressed and encrypted individually and
 and an index is stored at the end. The index is compressed and encryptet too. It
 is relatively small to minimize the cost of reading it.
 
-### The format
-
-zipurat uses its own binary format. It is, however really easy to understand. It
-is just a wrapper around age and zstd with a custom file index.
-
-It is detailed in ...todo!
+You can find more details [here](format.md).
 
 ## The name
 
