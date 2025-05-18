@@ -22,7 +22,8 @@ shortcomings:
 - They are often not very _programmer friendly_. Ideally, we want to be able to
   easily access old files in scripts.
 
-Zipurat optimizes for fast random file access over sftp or from a slow filesystem.
+Zipurat optimizes for fast random file access over sftp or from a slow
+filesystem.
 
 ## The goals
 
@@ -44,39 +45,44 @@ be slow and inconvenient because you will only do it once.
 There is no support for anything but file contents: no metadata, no links. The
 only exception are empty directories.
 
-There is no error correction used inside the format.
-Any damage to the file will lead to (at least partial) data loss.
+There is no error correction used inside the format. Any damage to the file will
+lead to (at least partial) data loss.
 
 ## Security notice
-> [!WARNING]
->  Do not use this if your personal safety depends on the encryption being secure!
 
-The first thing to note is that the number of files as well as their approximate sizes are not obfuscated. 
-Even without decrypting the data it is be possible to guess at their nature. 
-It might also be possible to deduce with relative certainty that an archive contains a certain dataset.
+> [!WARNING] Do not use this if your personal safety depends on the encryption
+> being secure!
 
-The second point is that this implementation relies on an [implementation](https://crates.io/crates/age) of age to be secure.
+The first thing to note is that the number of files as well as their approximate
+sizes are not obfuscated. Even without decrypting the data it is be possible to
+guess at their nature. It might also be possible to deduce with relative
+certainty that an archive contains a certain dataset.
+
+The second point is that this implementation relies on an
+[implementation](https://crates.io/crates/age) of age to be secure.
 
 ## Getting started
 
-### Installation 
+### Installation
+
 This tool can be installed using cargo:
 
 ```sh
 cargo install --git https://github.com/JanNeuendorf/zipurat
 ```
 
-### Creating an archive 
+### Creating an archive
 
-Prepare the folder by unpacking all existing archives within it.
-You will also have to resolve all file links and other objects that are not files. 
+Prepare the folder by unpacking all existing archives within it. You will also
+have to resolve all file links and other objects that are not files.
 
 The next step is to acquire an age identity-file if you do not already have one.
-This can be done by installing age and running `age-keygen`. 
-For decryption, zipurat will search in `~/.config/age/` (or equivalent) if no file is provided.
-But when we create an archive, we need to specify the file. 
+This can be done by installing age and running `age-keygen`. For decryption,
+zipurat will search in `~/.config/age/` (or equivalent) if no file is provided.
+But when we create an archive, we need to specify the file.
 
 We then use the `create` subcommand to create the archive.
+
 ```
 Usage: zipurat <ARCHIVE> create [OPTIONS] --source <SOURCE>
 Arguments:
@@ -87,7 +93,7 @@ Options:
   -c, --compression-level <COMPRESSION_LEVEL>  The zstd compression level [default: 3]
 ```
 
-### Interacting with the archive 
+### Interacting with the archive
 
 There are a number of subcommands to interact with the archive:
 
@@ -101,16 +107,16 @@ Commands:
   info     Get archive information
 ```
 
-
 ## The design
 
-The Idea is very simple, all files are compressed and encrypted individually and and an index is stored at the end. 
-The index is compressed and encryptet too. It is relatively small to minimize the cost of reading it.
+The Idea is very simple, all files are compressed and encrypted individually and
+and an index is stored at the end. The index is compressed and encryptet too. It
+is relatively small to minimize the cost of reading it.
 
 ### The format
 
-zipurat uses its own binary format. It is, however really easy to understand.
-It is just a wrapper around age and zstd with a custom file index. 
+zipurat uses its own binary format. It is, however really easy to understand. It
+is just a wrapper around age and zstd with a custom file index.
 
 It is detailed in ...todo!
 
