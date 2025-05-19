@@ -42,13 +42,13 @@ backups and want to organize them differently. This is not meant to deal with
 datasets that are still evolving. Therefore, creating the archive is allowed to
 be slow and inconvenient because you will only do it once.
 
-There is no support for anything but file contents: no metadata, no links. The
-only exception are empty directories.
+There is no support for anything but file contents: **no metadata**, no links.
+The only exception are empty directories.
 
 There is no error correction used inside the format. Any damage to the file will
 lead to (at least partial) data loss.
 
-## Security notice
+## Security notice and limitations
 
 > [!WARNING] Do not use this if your personal safety depends on the encryption
 > being secure!
@@ -60,6 +60,10 @@ certainty that an archive contains a certain dataset.
 
 The second point is that this implementation relies on an
 [implementation](https://crates.io/crates/age) of age to be secure.
+
+The current implementation does all operations on a file in memory. This means
+that large files might exhaust the available memory. This is not an inherent
+problem with the format and might be resolved.
 
 ## Getting started
 

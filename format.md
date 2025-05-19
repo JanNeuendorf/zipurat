@@ -5,7 +5,7 @@ The file consists of the following blocks:
 - A magic number
 - The files
 - The Index
-- The Index position
+- The Index length
 - The magic number repeated
 
 ### The magic number
@@ -13,9 +13,9 @@ The file consists of the following blocks:
 The file begins and ends with a unsigned 64 bit integer encoded in le bytes. It
 serves two purposes:
 
-- 1. Signify that this is a .zprt file and that it has been completely written
-     or copied.
-- 2. Serve as a version signifier if there are breaking changes to the format.
+- Signify that this is a .zprt file and that it has been completely written or
+  copied.
+- Serve as a version signifier if there are breaking changes to the format.
 
 For version 1.0 the number is 12219678139600706333.
 
@@ -72,3 +72,12 @@ reasons this is done:
   - A list of paths in the order of the previous list, giving the mapping of
     which path is stored at which index.
   - A list of paths that are empty directories
+
+### Finding the index
+
+Next, we store the length of the compressed and encrypted index. This
+information is always at a fixed position (starting 16 bytes from the end). When
+using sftp, the index in the file is usually tracked locally and used to make
+read-calls at absolute positions, so we might as well store the absolute
+position of the index in the file. But maybe this is used in some scenario where
+seeking to an absolute position is costly.
