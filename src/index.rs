@@ -22,12 +22,9 @@ pub struct Index {
 
 impl Index {
     pub fn parse(archive: &mut GenericFile, keys: &Vec<Box<dyn age::Identity>>) -> Result<Self> {
-        let mut u64_buffer = [0_u8; 8];
-
         archive.seek(SeekFrom::End(-16))?;
-        archive.read_exact(&mut u64_buffer)?;
-        let index_start = u64::from_le_bytes(u64_buffer);
-        archive.seek(SeekFrom::Start(index_start))?;
+        let index_offset = u64::read_bin(archive)?;
+        archive.seek(SeekFrom::Current(-1 * index_offset as i64 - 8))?;
         let mut buffer = vec![];
         archive.read_to_end(&mut buffer)?;
         for _b in 0..16 {

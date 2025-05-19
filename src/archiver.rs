@@ -9,8 +9,8 @@ use crate::index::Index;
 use crate::serializer::SimpleBinRepr;
 use crate::utils::{GenericFile, blake3_hash, compress, encrypt};
 use indicatif::{ProgressBar, ProgressStyle};
+use rand::SeedableRng;
 use rand::seq::SliceRandom;
-use rand::{RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 
 fn list_all_files_recursive(dir: &Path) -> Result<Vec<PathBuf>> {
@@ -143,9 +143,9 @@ pub(crate) fn build_archive(
     let mut index_deser = vec![];
     index.write_bin(&mut index_deser)?;
     let processed = encrypt(&compress(&index_deser, 22)?, &recipients)?;
-    let index_start = current_index;
+    let index_offset = processed.len() as u64;
     archive.write_all(&processed)?;
-    index_start.write_bin(archive)?;
+    index_offset.write_bin(archive)?;
     magic_number.write_bin(archive)?;
     pb.finish_and_clear();
     Ok(())
