@@ -1,4 +1,5 @@
 use clap::Parser;
+use colored::*;
 
 mod archiver;
 mod cli;
@@ -8,5 +9,7 @@ mod serializer;
 mod utils;
 fn main() {
     let result = cli::Cli::parse().run();
-    result.unwrap();
+    if let Err(e) = result {
+        eprintln!("Error: {}", format!("{}", e).red());
+    }
 }

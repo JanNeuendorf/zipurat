@@ -72,8 +72,9 @@ pub(crate) fn build_archive(
 ) -> Result<()> {
     let magic_number = 12219678139600706333_u64;
     magic_number.write_bin(archive)?;
-    let mut file_list = list_all_files_recursive(source)?;
-    let mut empty_dirs = list_all_empty_dirs(source)?;
+    let mut file_list =
+        list_all_files_recursive(source).context("Directory could not be listed")?;
+    let mut empty_dirs = list_all_empty_dirs(source).context("Directory could not be listed")?;
     let mut rng = ChaCha20Rng::from_os_rng();
 
     file_list.shuffle(&mut rng);
@@ -85,7 +86,10 @@ pub(crate) fn build_archive(
     let mut sizes = HashMap::new();
     let mut current_index = 8;
     let pb = ProgressBar::new(file_list.len() as u64);
-    pb.set_style(ProgressStyle::with_template("{bar:40} {pos:>7}/{len:7}  eta:{eta}").unwrap());
+    pb.set_style(
+        ProgressStyle::with_template("{bar:40} {pos:>7}/{len:7}  eta:{eta}")
+            .context("Progress bar error")?,
+    );
 
     for (i, in_path) in file_list.iter().enumerate() {
         pb.set_position(i as u64);
