@@ -50,7 +50,8 @@ lead to (at least partial) data loss.
 
 ## Security notice and limitations
 
-> [!WARNING] Do not use this if your personal safety depends on the encryption
+> [!WARNING]
+> Do not use this if your safety depends on the encryption
 > being secure!
 
 The first thing to note is that the number of files as well as their approximate
