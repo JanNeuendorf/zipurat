@@ -236,14 +236,13 @@ fn list_command(
         .filter(|p| p.starts_with(prefix))
         .map(|p| p.strip_prefix(prefix))
         .collect::<std::result::Result<Vec<_>, _>>()?;
-    if any.len() == 0 {
+    if any.is_empty() {
         return Err(anyhow!("directory not found"));
     }
     let mut children = vec![];
     for path in any {
         let first = path
             .components()
-            .into_iter()
             .next()
             .context("Empty entry! (It might be a file and not a directory)")?;
         if !children.contains(&first) {
@@ -270,7 +269,7 @@ fn info_command(archive: &mut GenericFile, ids: Vec<Box<dyn age::Identity>>) -> 
     let magic_number = u64::read_bin(archive)?;
 
     let index = Index::parse(archive, &ids)?;
-    let mut total_size = 0 as u64;
+    let mut total_size = 0_u64;
     for k in index.mapping.values() {
         total_size += index.sizes.get(&k.0).unwrap();
     }

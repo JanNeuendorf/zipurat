@@ -24,7 +24,7 @@ impl Index {
     pub fn parse(archive: &mut GenericFile, keys: &Vec<Box<dyn age::Identity>>) -> Result<Self> {
         archive.seek(SeekFrom::End(-16))?;
         let index_offset = u64::read_bin(archive)?;
-        archive.seek(SeekFrom::Current(-1 * index_offset as i64 - 8))?;
+        archive.seek(SeekFrom::Current(-(index_offset as i64) - 8))?;
         let mut buffer = vec![];
         archive.read_to_end(&mut buffer)?;
         for _b in 0..16 {
@@ -36,7 +36,7 @@ impl Index {
         Ok(deser)
     }
     pub fn index(&self, path: &Path) -> Option<(u64, u64)> {
-        self.mapping.get(path).map(|i| i.clone())
+        self.mapping.get(path).copied()
     }
     pub fn index_length_and_hash(&self, path: &Path) -> Result<(u64, u64, [u8; 32])> {
         let index = self.index(path).ok_or(anyhow!("File not in index"))?;
@@ -44,7 +44,7 @@ impl Index {
             .hashes
             .get(&index.0)
             .ok_or(anyhow!("File hash not found"))?;
-        Ok((index.0, index.1, hash.clone()))
+        Ok((index.0, index.1, *hash))
     }
 
     pub fn read_file(
@@ -57,7 +57,7 @@ impl Index {
         let content = read_from_raw_index(archive, keys, index, len)?;
 
         if hash != blake3_hash(&content) {
-            return Err(anyhow!("The hash of the file does not match"));
+            Err(anyhow!("The hash of the file does not match"))
         } else {
             Ok(content)
         }
@@ -71,10 +71,7 @@ impl Index {
             return false;
         }
         self.mapping
-            .keys()
-            .filter(|k| k.starts_with(path))
-            .next()
-            .is_some()
+            .keys().any(|k| k.starts_with(path))
     }
     pub fn du(&self, path: &Path) -> Result<u64> {
         if self.is_file(path) {

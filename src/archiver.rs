@@ -94,7 +94,7 @@ pub(crate) fn build_archive(
         ProgressStyle::with_template("{bar:40} {pos:>7}/{len:7}  eta:{eta}\nfile: {msg}")
             .context("Progress bar error")?,
     );
-    println!("");
+    println!();
 
     for (i, in_path) in file_list.iter().enumerate() {
         pb.set_position(i as u64);
@@ -126,11 +126,11 @@ pub(crate) fn build_archive(
 
         match dedup_partner {
             None => {
-                hashes.insert(current_index as u64, hash.clone());
-                sizes.insert(current_index as u64, raw_size);
+                hashes.insert(current_index, hash);
+                sizes.insert(current_index, raw_size);
                 archive.write_all(&processed)?;
                 mapping.insert(in_path.clone(), (current_index, chunk_len));
-                dedup_hashes.push((in_path.clone(), hash.clone()));
+                dedup_hashes.push((in_path.clone(), hash));
                 current_index += chunk_len;
             }
             Some(dedup) => {
@@ -166,7 +166,7 @@ mod test {
     use super::*;
     #[test]
     fn list_src() {
-        let list = list_all_files_recursive(&Path::new(".")).unwrap();
+        let list = list_all_files_recursive(Path::new(".")).unwrap();
         for l in list {
             println!("{}", l.display());
         }

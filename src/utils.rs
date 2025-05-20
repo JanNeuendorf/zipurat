@@ -19,7 +19,7 @@ pub fn encrypt(
     let reps: Vec<Box<&dyn age::Recipient>> = recipients
         .iter()
         .map(|r| r.as_ref() as &dyn age::Recipient)
-        .map(|r| Box::new(r))
+        .map(Box::new)
         .collect();
     let encryptor = age::Encryptor::with_recipients(reps.iter().map(|k| *k.as_ref()))?;
     let mut encrypted = vec![];
@@ -48,12 +48,12 @@ pub fn decrypt(input: &Vec<u8>, keys: &Vec<Box<dyn age::Identity>>) -> Result<Ve
 pub fn open_local_archive_read(filename: &str) -> Result<GenericFile> {
     let f = std::fs::File::open(filename)?;
     let file = GenericFile::Local(f);
-    return Ok(file);
+    Ok(file)
 }
 pub fn open_local_archive_write(filename: &str) -> Result<GenericFile> {
     let f = std::fs::File::create_new(filename)?;
     let file = GenericFile::Local(f);
-    return Ok(file);
+    Ok(file)
 }
 
 pub fn open_remote_archive_read(
@@ -70,7 +70,7 @@ pub fn open_remote_archive_read(
     let sftp = sess.sftp()?;
     let remote_file = sftp.open(Path::new(filename))?;
 
-    return Ok(GenericFile::Remote(remote_file));
+    Ok(GenericFile::Remote(remote_file))
 }
 
 pub fn open_remote_archive_write(
@@ -87,7 +87,7 @@ pub fn open_remote_archive_write(
     let sftp = sess.sftp()?;
     let remote_file = sftp.create(Path::new(filename))?;
 
-    return Ok(GenericFile::Remote(remote_file));
+    Ok(GenericFile::Remote(remote_file))
 }
 
 pub enum GenericFile {
@@ -129,7 +129,7 @@ impl Write for GenericFile {
 }
 
 pub fn blake3_hash(data: &Vec<u8>) -> [u8; 32] {
-    let hash = blake3::hash(&data);
+    let hash = blake3::hash(data);
     // hash.to_hex().to_string()
     *hash.as_bytes()
 }
