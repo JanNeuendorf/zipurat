@@ -48,11 +48,11 @@ The only exception are empty directories.
 There is no error correction used inside the format. Any damage to the file will
 lead to (at least partial) data loss.
 
-## Security notice and limitations
+## Security notice
 
 > [!WARNING]
-> Do not use this if your safety depends on the encryption
-> being secure!
+> Do not use this if your safety depends on the encryption being
+> secure!
 
 The first thing to note is that the number of files as well as their approximate
 sizes are not obfuscated. Even without decrypting the data it is be possible to
@@ -61,10 +61,6 @@ certainty that an archive contains a certain dataset.
 
 The second point is that this implementation relies on an
 [implementation](https://crates.io/crates/age) of age to be secure.
-
-The current implementation does all operations on a file in memory. This means
-that large files might exhaust the available memory. This is not an inherent
-problem with the format and might be resolved.
 
 ## Getting started
 
