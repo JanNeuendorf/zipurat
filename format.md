@@ -60,17 +60,17 @@ reasons this is done:
   The index is written as:
 
   - The magic number (repeated again for convenience and to avoid tampering.)
+  - A list of (index, len), including duplicates for duplicate files. The
+    lengths correspond to the lengths of the compressed and encrypted blocks.
+  - A list of paths in the order of the previous list, giving the mapping of
+    which path is stored at which index.
+  - A list of paths that are empty directories
   - A list of indices that correspond to the start-bytes of all unique files.
+    (This is a subset of the indices in the first list.)
   - A list of hashes corresponding to the unique files from the previous list.
     These are the hashes of the original files.
   - A list of sizes (in bytes) of the original files. This list matches the
     order of the previous two.
-  - A list of (index, len), this time including duplicates for duplicate files.
-    (the indices are a superset of the first list.) The lengths correspond to
-    the lengths of the compressed and encrypted blocks.
-  - A list of paths in the order of the previous list, giving the mapping of
-    which path is stored at which index.
-  - A list of paths that are empty directories
 
 ### Finding the index
 

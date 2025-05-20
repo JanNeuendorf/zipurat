@@ -112,12 +112,12 @@ impl<B1: SimpleBinRepr, B2: SimpleBinRepr> SimpleBinRepr for (B1, B2) {
 impl SimpleBinRepr for Index {
     fn read_bin<R: Read>(reader: &mut R) -> Result<Self> {
         let magic_number = u64::read_bin(reader)?;
-        let hash_indices: Vec<u64> = Vec::read_bin(reader)?;
-        let hashes: Vec<[u8; 32]> = Vec::read_bin(reader)?;
-        let sizes: Vec<u64> = Vec::read_bin(reader)?;
         let mapping_indices: Vec<(u64, u64)> = Vec::read_bin(reader)?;
         let maps: Vec<PathBuf> = Vec::read_bin(reader)?;
         let empty_dirs: Vec<PathBuf> = Vec::read_bin(reader)?;
+        let hash_indices: Vec<u64> = Vec::read_bin(reader)?;
+        let hashes: Vec<[u8; 32]> = Vec::read_bin(reader)?;
+        let sizes: Vec<u64> = Vec::read_bin(reader)?;
 
         if hash_indices.len() != hashes.len() {
             return Err(anyhow!("Malformed index"));
@@ -163,12 +163,12 @@ impl SimpleBinRepr for Index {
             maps.push(path.clone());
         }
         self.magic_number.write_bin(writer)?;
-        hash_indices.write_bin(writer)?;
-        hashes.write_bin(writer)?;
-        sizes.write_bin(writer)?;
         map_indices.write_bin(writer)?;
         maps.write_bin(writer)?;
-        self.empty_dirs.write_bin(writer)
+        self.empty_dirs.write_bin(writer)?;
+        hash_indices.write_bin(writer)?;
+        hashes.write_bin(writer)?;
+        sizes.write_bin(writer)
     }
 }
 
