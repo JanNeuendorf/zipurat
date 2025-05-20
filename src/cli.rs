@@ -9,7 +9,10 @@ use std::{
 use clap::{Parser, Subcommand};
 use humansize::{DECIMAL, format_size};
 
-use crate::{restore::restore_command, serializer::SimpleBinRepr};
+use crate::{
+    restore::{copy_file, restore_command, stream_file},
+    serializer::SimpleBinRepr,
+};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about =Some("Interact with zipurat archives."))]
@@ -194,16 +197,13 @@ fn show_command(
     out: &Option<PathBuf>,
 ) -> Result<()> {
     let index = Index::parse(archive, &ids)?;
-    let content = index.read_file(archive, path, &ids)?;
     match out {
         Some(file) => {
-            std::fs::write(file, content)?;
+            copy_file(archive, path, file, &index, &ids)?;
         }
         None => {
-            let stdout = std::io::stdout();
-            let mut handle = stdout.lock();
-            handle.write_all(&content)?;
-            handle.flush()?;
+            let mut stdout = std::io::stdout();
+            stream_file(archive, path, &mut stdout, &index, &ids)?;
         }
     }
     Ok(())

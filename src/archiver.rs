@@ -3,12 +3,13 @@ use colored::*;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use zstd::zstd_safe::WriteBuf;
 
-use std::io::Write;
+use std::io::{Read, Seek, Write};
 
 use crate::index::Index;
 use crate::serializer::SimpleBinRepr;
-use crate::utils::{GenericFile, blake3_hash, compress, encrypt};
+use crate::utils::{GenericFile, blake3_hash, blake3_hash_streaming, compress_and_encrypt};
 use indicatif::{ProgressBar, ProgressStyle};
 use rand::SeedableRng;
 use rand::seq::SliceRandom;
@@ -102,11 +103,12 @@ pub(crate) fn build_archive(
         let mut read_path = PathBuf::new();
         read_path.push(source);
         read_path.push(in_path);
-        let raw = fs::read(&read_path)?;
-        let raw_size = raw.len() as u64;
-        let hash = blake3_hash(&raw);
-        let processed = encrypt(&compress(&raw, level)?, &recipients)?;
-        let chunk_len = processed.len() as u64;
+        // let raw = fs::read(&read_path)?;
+        // let raw_size = raw.len() as u64;
+        let raw_size = fs::metadata(&read_path)?.len();
+        let hash = blake3_hash_streaming(&mut fs::File::open(&read_path)?);
+        // let processed = encrypt(&compress(&raw, level)?, &recipients)?;
+        // let chunk_len = processed.len() as u64;
         let candidates = dedup_hashes
             .iter()
             .filter(|(_, h)| *h == hash)
@@ -118,7 +120,7 @@ pub(crate) fn build_archive(
             ref_path.push(source);
             ref_path.push(c);
 
-            if fs::read(ref_path)? == raw {
+            if files_equal(fs::File::open(&read_path)?, fs::File::open(&ref_path)?)? {
                 dedup_partner = Some(c);
                 break;
             }
@@ -128,7 +130,9 @@ pub(crate) fn build_archive(
             None => {
                 hashes.insert(current_index, hash);
                 sizes.insert(current_index, raw_size);
-                archive.write_all(&processed)?;
+                let pos_start = archive.stream_position()?;
+                compress_and_encrypt(&mut fs::File::open(read_path)?, archive, level, &recipients)?;
+                let chunk_len = pos_start - archive.stream_position()?;
                 mapping.insert(in_path.clone(), (current_index, chunk_len));
                 dedup_hashes.push((in_path.clone(), hash));
                 current_index += chunk_len;
@@ -152,13 +156,36 @@ pub(crate) fn build_archive(
 
     let mut index_deser = vec![];
     index.write_bin(&mut index_deser)?;
-    let processed = encrypt(&compress(&index_deser, 22)?, &recipients)?;
-    let index_offset = processed.len() as u64;
-    archive.write_all(&processed)?;
+    let start_pos = archive.stream_position()?;
+    compress_and_encrypt(&mut index_deser.as_slice(), archive, 22, &recipients)?;
+    let index_offset = archive.stream_position()? - start_pos;
     index_offset.write_bin(archive)?;
     magic_number.write_bin(archive)?;
     pb.finish_and_clear();
+    dbg!(index_offset);
     Ok(())
+}
+
+const BUF_SIZE: usize = 8192;
+
+fn files_equal(mut a: impl Read, mut b: impl Read) -> Result<bool> {
+    let mut buf_a = [0u8; BUF_SIZE];
+    let mut buf_b = [0u8; BUF_SIZE];
+
+    loop {
+        let n1 = a.read(&mut buf_a)?;
+        let n2 = b.read(&mut buf_b)?;
+
+        if n1 != n2 {
+            return Ok(false);
+        }
+        if n1 == 0 {
+            return Ok(true); // both reached EOF
+        }
+        if buf_a[..n1] != buf_b[..n2] {
+            return Ok(false);
+        }
+    }
 }
 
 #[cfg(test)]

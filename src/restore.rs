@@ -1,12 +1,12 @@
 use crate::{
     index::Index,
-    utils::{GenericFile, blake3_hash},
+    utils::{GenericFile, blake3_hash, blake3_hash_streaming, decrypt_and_decompress},
 };
 use anyhow::{Result, anyhow};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::{
     fs,
-    io::{Read, Write},
+    io::{Read, Seek, Write},
     path::Path,
 };
 
@@ -27,7 +27,19 @@ pub fn restore_command(
     }
 }
 
-fn copy_file(
+pub fn stream_file<W: Write>(
+    archive: &mut GenericFile,
+    from: &Path,
+    to: &mut W,
+    index: &Index,
+    ids: &Vec<Box<dyn age::Identity>>,
+) -> Result<()> {
+    let (i, len, _) = index.index_length_and_hash(from)?;
+    archive.seek(std::io::SeekFrom::Start(i))?;
+    decrypt_and_decompress(archive, to, len, ids)?;
+    Ok(())
+}
+pub fn copy_file(
     archive: &mut GenericFile,
     from: &Path,
     to: &Path,
@@ -35,9 +47,7 @@ fn copy_file(
     ids: &Vec<Box<dyn age::Identity>>,
 ) -> Result<()> {
     let mut file = fs::File::create(to)?;
-    let content = index.read_file(archive, from, ids)?;
-    file.write_all(content.as_slice())?;
-    Ok(())
+    stream_file(archive, from, &mut file, index, ids)
 }
 
 fn copy_directory(
@@ -59,20 +69,16 @@ fn copy_directory(
         let from_path = from.join(c);
         let to_path = to.join(c);
         if trust && to_path.exists() {
-            let mut buf = vec![];
-            fs::File::open(&to_path)?.read_to_end(&mut buf)?;
-            let hash_disk = blake3_hash(&buf);
+            let hash_disk = blake3_hash_streaming(&mut fs::File::open(&to_path)?);
             let (_, _, hash_ref) = index.index_length_and_hash(&from_path)?;
             if hash_ref == hash_disk {
                 continue;
             }
         }
-        // continue;
         if let Some(parent) = to_path.parent() {
             fs::create_dir_all(parent)?;
         }
-        let content = index.read_file(archive, &from_path, ids)?;
-        fs::File::create(&to_path)?.write_all(&content)?;
+        copy_file(archive, &from_path, &to_path, index, ids)?;
     }
     pb.finish_and_clear();
     let empties = index
