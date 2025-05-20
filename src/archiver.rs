@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use colored::*;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -38,8 +39,11 @@ fn recurse_dir_files(root: &Path, dir: &Path, files: &mut Vec<PathBuf>) -> Resul
                 files.push(relative_path.to_path_buf());
             }
         } else {
-            println!("Ignoring non file object {}", path.to_string_lossy());
-            // return Err(anyhow!("Non file object {}", path.to_string_lossy()));
+            println!(
+                "{}:\n{}",
+                "Ignoring non-file object".yellow().bold(),
+                path.to_string_lossy()
+            );
         }
     }
 
@@ -87,12 +91,14 @@ pub(crate) fn build_archive(
     let mut current_index = 8;
     let pb = ProgressBar::new(file_list.len() as u64);
     pb.set_style(
-        ProgressStyle::with_template("{bar:40} {pos:>7}/{len:7}  eta:{eta}")
+        ProgressStyle::with_template("{bar:40} {pos:>7}/{len:7}  eta:{eta}\nfile: {msg}")
             .context("Progress bar error")?,
     );
+    println!("");
 
     for (i, in_path) in file_list.iter().enumerate() {
         pb.set_position(i as u64);
+        pb.set_message(format!("{}", &in_path.to_string_lossy()));
         let mut read_path = PathBuf::new();
         read_path.push(source);
         read_path.push(in_path);
