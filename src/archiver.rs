@@ -3,13 +3,12 @@ use colored::*;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use zstd::zstd_safe::WriteBuf;
 
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek};
 
 use crate::index::Index;
 use crate::serializer::SimpleBinRepr;
-use crate::utils::{GenericFile, blake3_hash, blake3_hash_streaming, compress_and_encrypt};
+use crate::utils::{GenericFile, blake3_hash_streaming, compress_and_encrypt};
 use indicatif::{ProgressBar, ProgressStyle};
 use rand::SeedableRng;
 use rand::seq::SliceRandom;
@@ -106,7 +105,7 @@ pub(crate) fn build_archive(
         // let raw = fs::read(&read_path)?;
         // let raw_size = raw.len() as u64;
         let raw_size = fs::metadata(&read_path)?.len();
-        let hash = blake3_hash_streaming(&mut fs::File::open(&read_path)?);
+        let hash = blake3_hash_streaming(&mut fs::File::open(&read_path)?)?;
         // let processed = encrypt(&compress(&raw, level)?, &recipients)?;
         // let chunk_len = processed.len() as u64;
         let candidates = dedup_hashes
@@ -132,7 +131,7 @@ pub(crate) fn build_archive(
                 sizes.insert(current_index, raw_size);
                 let pos_start = archive.stream_position()?;
                 compress_and_encrypt(&mut fs::File::open(read_path)?, archive, level, &recipients)?;
-                let chunk_len = pos_start - archive.stream_position()?;
+                let chunk_len = archive.stream_position()? - pos_start;
                 mapping.insert(in_path.clone(), (current_index, chunk_len));
                 dedup_hashes.push((in_path.clone(), hash));
                 current_index += chunk_len;
@@ -162,7 +161,6 @@ pub(crate) fn build_archive(
     index_offset.write_bin(archive)?;
     magic_number.write_bin(archive)?;
     pb.finish_and_clear();
-    dbg!(index_offset);
     Ok(())
 }
 

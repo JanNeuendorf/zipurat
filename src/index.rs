@@ -1,16 +1,15 @@
 use std::{
     collections::HashMap,
-    io::{Read, Seek, SeekFrom},
+    io::{Seek, SeekFrom},
     path::{Path, PathBuf},
 };
 
 use anyhow::anyhow;
 use anyhow::{Context, Result};
-use zstd::zstd_safe::WriteBuf;
 
 use crate::serializer::SimpleBinRepr;
 
-use crate::utils::{GenericFile, blake3_hash, decrypt_and_decompress};
+use crate::utils::{GenericFile, decrypt_and_decompress};
 
 #[derive(Clone, Debug)]
 pub struct Index {
@@ -25,7 +24,6 @@ impl Index {
     pub fn parse(archive: &mut GenericFile, keys: &Vec<Box<dyn age::Identity>>) -> Result<Self> {
         archive.seek(SeekFrom::End(-16))?;
         let index_offset = u64::read_bin(archive)?;
-        dbg!(index_offset);
         archive.seek(SeekFrom::Current(-(index_offset as i64) - 8))?;
         let mut content = vec![];
         decrypt_and_decompress(archive, &mut content, index_offset, keys)?;
@@ -45,11 +43,6 @@ impl Index {
         Ok((index.0, index.1, *hash))
     }
 
-    pub fn seek_file(&self, archive: &mut GenericFile, path: &Path) -> Result<()> {
-        let (index, _len, _hash) = self.index_length_and_hash(path)?;
-        archive.seek(SeekFrom::Start(index))?;
-        Ok(())
-    }
     pub fn is_file(&self, path: &Path) -> bool {
         self.mapping.contains_key(path)
     }

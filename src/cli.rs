@@ -2,7 +2,7 @@ use anyhow::{Context, Result, anyhow};
 use colored::*;
 use std::{
     fs,
-    io::{Seek, Write},
+    io::Seek,
     path::{Path, PathBuf},
 };
 

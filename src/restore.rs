@@ -1,12 +1,12 @@
 use crate::{
     index::Index,
-    utils::{GenericFile, blake3_hash, blake3_hash_streaming, decrypt_and_decompress},
+    utils::{GenericFile, blake3_hash_streaming, decrypt_and_decompress},
 };
 use anyhow::{Result, anyhow};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::{
     fs,
-    io::{Read, Seek, Write},
+    io::{Seek, Write},
     path::Path,
 };
 
@@ -69,7 +69,7 @@ fn copy_directory(
         let from_path = from.join(c);
         let to_path = to.join(c);
         if trust && to_path.exists() {
-            let hash_disk = blake3_hash_streaming(&mut fs::File::open(&to_path)?);
+            let hash_disk = blake3_hash_streaming(&mut fs::File::open(&to_path)?)?;
             let (_, _, hash_ref) = index.index_length_and_hash(&from_path)?;
             if hash_ref == hash_disk {
                 continue;
