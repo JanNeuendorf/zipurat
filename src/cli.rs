@@ -229,18 +229,9 @@ fn list_command(
     prefix: &Path,
     ids: Vec<Box<dyn age::Identity>>,
 ) -> Result<()> {
-    let index = Index::parse(archive, &ids)?;
-    let any = index
-        .mapping
-        .keys()
-        .filter(|p| p.starts_with(prefix))
-        .map(|p| p.strip_prefix(prefix))
-        .collect::<std::result::Result<Vec<_>, _>>()?;
-    if any.is_empty() {
-        return Err(anyhow!("directory not found"));
-    }
+    let index = Index::parse(archive, &ids)?.subindex(prefix)?;
     let mut children = vec![];
-    for path in any {
+    for path in index.mapping.keys() {
         let first = path
             .components()
             .next()
@@ -250,8 +241,8 @@ fn list_command(
         }
     }
     for p in children {
-        if index.is_file(&prefix.join(p)) {
-            let size = index.du(&prefix.join(p))?;
+        if index.is_file(&PathBuf::new().join(p)) {
+            let size = index.du(&PathBuf::new().join(p))?;
             let size_fmt = format_size(size, DECIMAL);
             println!("{:12} {}", size_fmt, p.as_os_str().to_string_lossy());
         } else {

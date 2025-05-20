@@ -25,7 +25,7 @@ impl SimpleBinRepr for u64 {
     }
 
     fn write_bin<W: Write>(&self, writer: &mut W) -> Result<()> {
-        writer.write(&self.to_le_bytes())?;
+        writer.write_all(&self.to_le_bytes())?;
         Ok(())
     }
 }
@@ -36,7 +36,7 @@ impl<const N: usize> SimpleBinRepr for [u8; N] {
     }
 
     fn write_bin<W: Write>(&self, writer: &mut W) -> Result<()> {
-        writer.write(self)?;
+        writer.write_all(self)?;
         Ok(())
     }
 }
@@ -53,7 +53,7 @@ impl SimpleBinRepr for String {
         let bytes = self.clone().into_bytes();
         let len = bytes.len() as u64;
         len.write_bin(writer)?;
-        writer.write(bytes.as_slice())?;
+        writer.write_all(bytes.as_slice())?;
         Ok(())
     }
 }

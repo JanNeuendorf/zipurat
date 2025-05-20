@@ -12,10 +12,7 @@ pub fn compress(input: &Vec<u8>, level: i32) -> Result<Vec<u8>> {
     Ok(compressor.compress(input.as_slice())?)
 }
 
-pub fn encrypt(
-    input: &Vec<u8>,
-    recipients: &Vec<Box<dyn age::Recipient + Send>>,
-) -> Result<Vec<u8>> {
+pub fn encrypt(input: &[u8], recipients: &Vec<Box<dyn age::Recipient + Send>>) -> Result<Vec<u8>> {
     let reps: Vec<Box<&dyn age::Recipient>> = recipients
         .iter()
         .map(|r| r.as_ref() as &dyn age::Recipient)
@@ -128,7 +125,7 @@ impl Write for GenericFile {
     }
 }
 
-pub fn blake3_hash(data: &Vec<u8>) -> [u8; 32] {
+pub fn blake3_hash(data: &[u8]) -> [u8; 32] {
     let hash = blake3::hash(data);
     // hash.to_hex().to_string()
     *hash.as_bytes()

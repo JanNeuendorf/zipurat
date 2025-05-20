@@ -48,12 +48,8 @@ fn copy_directory(
     ids: &Vec<Box<dyn age::Identity>>,
     trust: bool,
 ) -> Result<()> {
-    let children = index
-        .mapping
-        .keys()
-        .filter(|p| p.starts_with(from))
-        .map(|p| p.strip_prefix(from))
-        .collect::<std::result::Result<Vec<_>, _>>()?;
+    let subindex = index.subindex(from)?;
+    let children = subindex.mapping.keys().collect::<Vec<_>>();
     let pb = ProgressBar::new(children.len() as u64);
     pb.set_style(ProgressStyle::with_template("{bar:40} {pos:>7}/{len:7}  eta:{eta}").unwrap());
 

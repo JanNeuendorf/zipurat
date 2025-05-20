@@ -70,8 +70,7 @@ impl Index {
         if self.is_file(path) {
             return false;
         }
-        self.mapping
-            .keys().any(|k| k.starts_with(path))
+        self.mapping.keys().any(|k| k.starts_with(path))
     }
     pub fn du(&self, path: &Path) -> Result<u64> {
         if self.is_file(path) {
@@ -89,6 +88,50 @@ impl Index {
                 .collect::<Result<Vec<_>>>()?;
             Ok(children.iter().sum())
         }
+    }
+    pub fn subindex(&self, subpath: &Path) -> Result<Self> {
+        if !self.is_dir(subpath) {
+            return Err(anyhow!(
+                "{} is not a directory in index",
+                subpath.to_string_lossy()
+            ));
+        }
+        let new_mappings = self
+            .mapping
+            .iter()
+            .filter(|(p, _m)| p.starts_with(subpath))
+            .map(|(p, m)| (p.strip_prefix(subpath).map(|p| (p, m))))
+            .map(|r| r.map(|(k, v)| (k.to_path_buf(), *v)))
+            .collect::<std::result::Result<HashMap<_, _>, _>>()?;
+
+        let new_empties = self
+            .empty_dirs
+            .iter()
+            .filter(|p| p.starts_with(subpath))
+            .map(|p| (p.strip_prefix(subpath)))
+            .map(|r| r.map(|e| e.to_path_buf()))
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let selected = new_mappings.values().map(|i| i.0).collect::<Vec<_>>();
+        let new_hashes = self
+            .hashes
+            .iter()
+            .filter(|(i, _h)| selected.contains(i))
+            .map(|(k, v)| (*k, *v))
+            .collect::<HashMap<_, _>>();
+        let new_sizes = self
+            .sizes
+            .iter()
+            .filter(|(i, _s)| selected.contains(i))
+            .map(|(k, v)| (*k, *v))
+            .collect::<HashMap<_, _>>();
+
+        Ok(Self {
+            hashes: new_hashes,
+            mapping: new_mappings,
+            sizes: new_sizes,
+            empty_dirs: new_empties,
+            magic_number: self.magic_number,
+        })
     }
 }
 pub fn read_from_raw_index(
