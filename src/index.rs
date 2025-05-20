@@ -13,9 +13,9 @@ use crate::utils::{GenericFile, blake3_hash, decompress, decrypt};
 
 #[derive(Clone, Debug)]
 pub struct Index {
-    pub hashes: HashMap<(u64, u64), [u8; 32]>,
+    pub hashes: HashMap<u64, [u8; 32]>,
     pub mapping: HashMap<PathBuf, (u64, u64)>,
-    pub sizes: HashMap<(u64, u64), u64>,
+    pub sizes: HashMap<u64, u64>,
     pub empty_dirs: Vec<PathBuf>,
     pub magic_number: u64,
 }
@@ -42,7 +42,7 @@ impl Index {
         let index = self.index(path).ok_or(anyhow!("File not in index"))?;
         let hash = self
             .hashes
-            .get(&index)
+            .get(&index.0)
             .ok_or(anyhow!("File hash not found"))?;
         Ok((index.0, index.1, hash.clone()))
     }
@@ -80,7 +80,7 @@ impl Index {
         if self.is_file(path) {
             let mapping = self.mapping.get(path).context("invalid path")?;
             self.sizes
-                .get(mapping)
+                .get(&mapping.0)
                 .context("Size not in index")
                 .copied()
         } else {

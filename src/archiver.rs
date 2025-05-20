@@ -126,8 +126,8 @@ pub(crate) fn build_archive(
 
         match dedup_partner {
             None => {
-                hashes.insert((current_index as u64, chunk_len), hash.clone());
-                sizes.insert((current_index as u64, chunk_len), raw_size);
+                hashes.insert(current_index as u64, hash.clone());
+                sizes.insert(current_index as u64, raw_size);
                 archive.write_all(&processed)?;
                 mapping.insert(in_path.clone(), (current_index, chunk_len));
                 dedup_hashes.push((in_path.clone(), hash.clone()));

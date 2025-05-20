@@ -112,7 +112,7 @@ impl<B1: SimpleBinRepr, B2: SimpleBinRepr> SimpleBinRepr for (B1, B2) {
 impl SimpleBinRepr for Index {
     fn read_bin<R: Read>(reader: &mut R) -> Result<Self> {
         let magic_number = u64::read_bin(reader)?;
-        let hash_indices: Vec<(u64, u64)> = Vec::read_bin(reader)?;
+        let hash_indices: Vec<u64> = Vec::read_bin(reader)?;
         let hashes: Vec<[u8; 32]> = Vec::read_bin(reader)?;
         let sizes: Vec<u64> = Vec::read_bin(reader)?;
         let mapping_indices: Vec<(u64, u64)> = Vec::read_bin(reader)?;
@@ -129,9 +129,9 @@ impl SimpleBinRepr for Index {
             return Err(anyhow!("Malformed index"));
         }
 
-        let hm_hashes: HashMap<(u64, u64), [u8; 32]> =
+        let hm_hashes: HashMap<u64, [u8; 32]> =
             hash_indices.clone().into_iter().zip(hashes).collect();
-        let hm_sizes: HashMap<(u64, u64), u64> = hash_indices.into_iter().zip(sizes).collect();
+        let hm_sizes: HashMap<u64, u64> = hash_indices.into_iter().zip(sizes).collect();
         let hm_mapping: HashMap<PathBuf, (u64, u64)> =
             maps.into_iter().zip(mapping_indices).collect();
         Ok(Self {

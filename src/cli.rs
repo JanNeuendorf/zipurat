@@ -272,7 +272,7 @@ fn info_command(archive: &mut GenericFile, ids: Vec<Box<dyn age::Identity>>) -> 
     let index = Index::parse(archive, &ids)?;
     let mut total_size = 0 as u64;
     for k in index.mapping.values() {
-        total_size += index.sizes.get(&k).unwrap();
+        total_size += index.sizes.get(&k.0).unwrap();
     }
     let duplicats = index.mapping.len() - index.hashes.len();
     let compressed_size = archive.seek(std::io::SeekFrom::End(0))?;

@@ -60,15 +60,14 @@ reasons this is done:
   The index is written as:
 
   - The magic number (repeated again for convenience and to avoid tampering.)
-  - A list of (index,len) that correspond to the start-bytes and lengths of all
-    unique files. The lengths are the lengths of the encrypted and compressed
-    files.
+  - A list of indices that correspond to the start-bytes of all unique files.
   - A list of hashes corresponding to the unique files from the previous list.
     These are the hashes of the original files.
   - A list of sizes (in bytes) of the original files. This list matches the
     order of the previous two.
-  - A second list of (index, len), this time including duplicates for duplicate
-    files. (It is a superset of the first list.)
+  - A list of (index, len), this time including duplicates for duplicate files.
+    (the indices are a superset of the first list.) The lengths correspond to
+    the lengths of the compressed and encrypted blocks.
   - A list of paths in the order of the previous list, giving the mapping of
     which path is stored at which index.
   - A list of paths that are empty directories
