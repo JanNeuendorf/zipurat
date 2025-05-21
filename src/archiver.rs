@@ -91,7 +91,7 @@ pub(crate) fn build_archive(
     let mut current_index = 8;
     let pb = ProgressBar::new(file_list.len() as u64);
     pb.set_style(
-        ProgressStyle::with_template("{bar:40} {pos:>7}/{len:7}  eta:{eta}\nfile: {msg}")
+        ProgressStyle::with_template("{bar:40} {pos:>7}/{len:7}\nfile: {msg}")
             .context("Progress bar error")?,
     );
     println!();

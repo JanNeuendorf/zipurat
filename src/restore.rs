@@ -61,10 +61,11 @@ fn copy_directory(
     let subindex = index.subindex(from)?;
     let children = subindex.mapping.keys().collect::<Vec<_>>();
     let pb = ProgressBar::new(children.len() as u64);
-    pb.set_style(ProgressStyle::with_template("{bar:40} {pos:>7}/{len:7}  eta:{eta}").unwrap());
+    pb.set_style(ProgressStyle::with_template("{bar:40} {pos:>7}/{len:7}\nfile: {msg}").unwrap());
 
     for (i, c) in children.iter().enumerate() {
         pb.set_position(i as u64);
+        pb.set_message(format!("{}", c.to_string_lossy()));
 
         let from_path = from.join(c);
         let to_path = to.join(c);
