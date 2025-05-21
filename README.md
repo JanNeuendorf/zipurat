@@ -28,7 +28,7 @@ filesystem.
 ## The goals
 
 - Very fast indexing and single file access
-- Optimized for access over sftp
+- Optimized for use over sftp
 - Sensible encryption (Some information can leak, but not the contents of
   files.)
 - Simple and well described format (It should be possible to get your data
@@ -39,7 +39,7 @@ filesystem.
 
 This is not a solution for creating backups, but for when you already have
 backups and want to organize them differently. This is not meant to deal with
-datasets that are still evolving. Therefore, creating the archive is allowed to
+datasets that are still evolving. Creating the archive is allowed to
 be slow and inconvenient because you will only do it once.
 
 There is no support for anything but file contents: **no metadata**, no links.
@@ -72,13 +72,16 @@ This tool can be installed using cargo:
 cargo install --git https://github.com/JanNeuendorf/zipurat
 ```
 
+If you have trouble building this project, try adding `--features=vendored_ssl`.
+
 ### Creating an archive
 
 Prepare the folder by unpacking all existing archives within it. You will also
 have to resolve all file links and other objects that are not files.
+You will get a warning that they will be ignored, but no hard error. 
 
 The next step is to acquire an age identity-file if you do not already have one.
-This can be done by installing age and running `age-keygen`. For decryption,
+This can be done by installing [age](https://github.com/FiloSottile/age) and running `age-keygen`. For decryption,
 zipurat will search in `~/.config/age/` (or equivalent) if no file is provided.
 But when we create an archive, we need to specify the file.
 
