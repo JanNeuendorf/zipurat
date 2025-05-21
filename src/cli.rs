@@ -78,8 +78,6 @@ pub enum Commands {
     Info {},
 }
 
-use url::Url;
-
 use crate::{
     archiver::build_archive,
     index::Index,
@@ -103,21 +101,21 @@ fn open_general_archive_write(path: &str) -> Result<GenericFile> {
 }
 
 fn parse_sftp_url(s: &str) -> Result<(String, String, u64, String)> {
-    let url = Url::parse(s)?;
+    let s = s
+        .strip_prefix("sftp://")
+        .ok_or(anyhow!("Missing sftp:// scheme"))?;
+    let (user_host_port, path) = s.split_once(':').ok_or(anyhow!("Missing ':' after host"))?;
+    let (user, host_port) = user_host_port
+        .split_once('@')
+        .ok_or(anyhow!("Missing user@host"))?;
 
-    if url.scheme() != "sftp" {
-        return Err(anyhow!("URL scheme must be 'sftp'"));
-    }
+    let (host, port) = if let Some((h, p)) = host_port.split_once(':') {
+        (h, p.parse()?)
+    } else {
+        (host_port, 22)
+    };
 
-    let host = url.host_str().ok_or(anyhow!("Missing host"))?.to_string();
-    let user = url.username();
-    if user.is_empty() {
-        return Err(anyhow!("User required"));
-    }
-    let port = url.port().unwrap_or(22);
-    let path = url.path().to_string();
-
-    Ok((host, user.to_string(), port.into(), path))
+    Ok((host.to_string(), user.to_string(), port, path.to_string()))
 }
 
 fn load_recipients(path: &str) -> Result<Vec<Box<dyn age::Recipient + Send>>> {

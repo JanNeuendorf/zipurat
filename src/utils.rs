@@ -65,7 +65,13 @@ pub fn open_remote_archive_read(
     sess.handshake().unwrap();
     sess.userauth_agent(user).unwrap();
     let sftp = sess.sftp()?;
-    let remote_file = sftp.open(Path::new(filename))?;
+    let path = Path::new(filename);
+    let path = if path.is_absolute() {
+        path
+    } else {
+        &sftp.realpath(Path::new("."))?.join(path)
+    };
+    let remote_file = sftp.open(path)?;
 
     Ok(GenericFile::Remote(remote_file))
 }
@@ -82,10 +88,16 @@ pub fn open_remote_archive_write(
     sess.handshake().unwrap();
     sess.userauth_agent(user).unwrap();
     let sftp = sess.sftp()?;
-    if sftp.open(Path::new(filename)).is_ok() {
+    let path = Path::new(filename);
+    let path = if path.is_absolute() {
+        path
+    } else {
+        &sftp.realpath(Path::new("."))?.join(path)
+    };
+    if sftp.open(path).is_ok() {
         return Err(anyhow!("Archive already exists"));
     }
-    let remote_file = sftp.create(Path::new(filename))?;
+    let remote_file = sftp.create(path)?;
 
     Ok(GenericFile::Remote(remote_file))
 }
