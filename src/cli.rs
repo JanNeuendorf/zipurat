@@ -260,12 +260,11 @@ fn info_command(archive: &mut GenericFile, ids: Vec<Box<dyn age::Identity>>) -> 
     let index = Index::parse(archive, &ids)?;
     let mut total_size = 0_u64;
     for k in index.mapping.values() {
-        total_size += index.sizes.get(&k.0).unwrap();
+        total_size += index.sizes.get(&k.0).context("Size could not be read")?;
     }
     let duplicats = index.mapping.len() - index.hashes.len();
     let compressed_size = archive.seek(std::io::SeekFrom::End(0))?;
     println!("magic number: {:X}", magic_number);
-    // println!("format variant: {}", _variant);
     println!("files: {}", index.mapping.len());
     println!("size original: {}", format_size(total_size, DECIMAL));
     println!("size compressed: {}", format_size(compressed_size, DECIMAL));
@@ -282,7 +281,8 @@ fn load_identities(provided: Option<&PathBuf>) -> Result<Vec<Box<dyn age::Identi
     if let Some(file) = provided {
         let ids = age::IdentityFile::from_file(
             file.to_str().context("Invalid path for IDs")?.to_string(),
-        )?
+        )
+        .context("Indentity file could not be loaded")?
         .into_identities()?;
         return Ok(ids);
     }
