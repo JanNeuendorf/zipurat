@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use std::{
     io::{Read, Seek, Write},
     net::TcpStream,
@@ -82,6 +82,9 @@ pub fn open_remote_archive_write(
     sess.handshake().unwrap();
     sess.userauth_agent(user).unwrap();
     let sftp = sess.sftp()?;
+    if sftp.open(Path::new(filename)).is_ok() {
+        return Err(anyhow!("Archive already exists"));
+    }
     let remote_file = sftp.create(Path::new(filename))?;
 
     Ok(GenericFile::Remote(remote_file))
