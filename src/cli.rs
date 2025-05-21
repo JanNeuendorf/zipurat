@@ -254,7 +254,8 @@ fn list_command(
     Ok(())
 }
 fn info_command(archive: &mut GenericFile, ids: Vec<Box<dyn age::Identity>>) -> Result<()> {
-    archive.seek(std::io::SeekFrom::End(-8))?;
+    archive.seek(std::io::SeekFrom::End(-16))?;
+    let index_size = u64::read_bin(archive)?;
     let magic_number = u64::read_bin(archive)?;
 
     let index = Index::parse(archive, &ids)?;
@@ -274,6 +275,7 @@ fn info_command(archive: &mut GenericFile, ids: Vec<Box<dyn age::Identity>>) -> 
     );
     println!("duplicate files: {}", duplicats);
     println!("empty directories: {}", index.empty_dirs.len());
+    println!("size index: {}", format_size(index_size, DECIMAL));
     Ok(())
 }
 
