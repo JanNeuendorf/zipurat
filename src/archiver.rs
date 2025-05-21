@@ -185,15 +185,3 @@ fn files_equal(mut a: impl Read, mut b: impl Read) -> Result<bool> {
         }
     }
 }
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    #[test]
-    fn list_src() {
-        let list = list_all_files_recursive(Path::new(".")).unwrap();
-        for l in list {
-            println!("{}", l.display());
-        }
-    }
-}

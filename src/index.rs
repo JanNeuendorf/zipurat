@@ -115,15 +115,3 @@ impl Index {
         })
     }
 }
-// pub fn read_from_raw_index(
-//     archive: &mut GenericFile,
-//     keys: &Vec<Box<dyn age::Identity>>,
-//     index: u64,
-//     len: u64,
-// ) -> Result<Vec<u8>> {
-//     let mut buffer = vec![0_u8; len as usize];
-//     archive.seek(SeekFrom::Start(index))?;
-//     archive.read_exact(&mut buffer)?;
-//     let content = decompress(&decrypt(&buffer, keys)?)?;
-//     Ok(content)
-// }
