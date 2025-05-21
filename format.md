@@ -33,7 +33,7 @@ reasons this is done:
 - In case of corruption of the index it should at least be possible to tell
   where files begin and end, and to decrypt them manually.
 
-- It is possible to use different recipients for different files. Someone get
+- It is possible to use different recipients for different files. Someone might get
   access to the entire index and certain files but not to the content of
   restricted files.
 
