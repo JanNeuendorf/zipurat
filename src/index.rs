@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     io::{Seek, SeekFrom},
     path::{Path, PathBuf},
 };
@@ -113,5 +113,28 @@ impl Index {
             empty_dirs: new_empties,
             magic_number: self.magic_number,
         })
+    }
+
+    pub fn search(&self, pattern: &str) -> HashSet<PathBuf> {
+        let mut matches = HashSet::new();
+        let pattern = pattern.to_lowercase();
+        for c in self.mapping.keys().chain(&self.empty_dirs) {
+            if let Some(f) = c.file_name().and_then(|f| f.to_str()) {
+                if f.to_lowercase().contains(&pattern) {
+                    matches.insert(c.to_path_buf());
+                }
+            }
+            if let Some(d) = c
+                .parent()
+                .and_then(|d| d.file_name())
+                .and_then(|d| d.to_str())
+            {
+                if d.to_lowercase().contains(&pattern) {
+                    let parent = c.parent().expect("Must have parent to match").to_path_buf();
+                    matches.insert(parent);
+                }
+            }
+        }
+        matches
     }
 }

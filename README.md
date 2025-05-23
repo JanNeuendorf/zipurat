@@ -69,7 +69,7 @@ The second point is that this implementation relies on an
 This tool can be installed using cargo:
 
 ```sh
-cargo install --git https://github.com/JanNeuendorf/zipurat
+cargo install --git https://github.com/JanNeuendorf/zipurat --locked
 ```
 
 If you have trouble building this project, try adding `--features=vendored_ssl`.

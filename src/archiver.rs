@@ -9,6 +9,7 @@ use std::io::{Read, Seek};
 use crate::index::Index;
 use crate::serializer::SimpleBinRepr;
 use crate::utils::{GenericFile, blake3_hash_streaming, compress_and_encrypt};
+use humansize::{DECIMAL, format_size};
 use indicatif::{ProgressBar, ProgressStyle};
 use rand::SeedableRng;
 use rand::seq::SliceRandom;
@@ -97,14 +98,18 @@ pub(crate) fn build_archive(
     println!();
 
     for (i, in_path) in file_list.iter().enumerate() {
-        pb.set_position(i as u64);
-        pb.set_message(format!("{}", &in_path.to_string_lossy()));
         let mut read_path = PathBuf::new();
         read_path.push(source);
         read_path.push(in_path);
         // let raw = fs::read(&read_path)?;
         // let raw_size = raw.len() as u64;
         let raw_size = fs::metadata(&read_path)?.len();
+        pb.set_position(i as u64);
+        pb.set_message(format!(
+            "{} ({})",
+            &in_path.to_string_lossy(),
+            format_size(raw_size, DECIMAL)
+        ));
         let hash = blake3_hash_streaming(&mut fs::File::open(&read_path)?)?;
         // let processed = encrypt(&compress(&raw, level)?, &recipients)?;
         // let chunk_len = processed.len() as u64;

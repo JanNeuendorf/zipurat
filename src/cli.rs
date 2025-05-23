@@ -49,6 +49,11 @@ pub enum Commands {
         #[arg(help = "directory to list")]
         prefix: Option<PathBuf>,
     },
+    #[command(about = "Search for files or directories", alias = "search")]
+    Find {
+        #[arg(help = "name to search for")]
+        name: String,
+    },
     #[command(about = "Restore a file or directory from the archive")]
     Restore {
         #[arg(
@@ -182,6 +187,11 @@ impl Cli {
                 };
                 restore_command(&mut archive, &from, to, &identities, *trust_hashes)?
             }
+            Commands::Find { name: pattern } => {
+                let mut archive = open_general_archive_read(&self.archive)?;
+                let identities = load_identities(self.identity_file.as_ref())?;
+                find_command(&mut archive, pattern, identities)?;
+            }
         };
 
         Ok(())
@@ -248,6 +258,28 @@ fn list_command(
                 "{:12} {}",
                 "-".blue().bold(),
                 p.as_os_str().to_string_lossy().blue().bold()
+            );
+        }
+    }
+    Ok(())
+}
+fn find_command(
+    archive: &mut GenericFile,
+    pattern: &str,
+    ids: Vec<Box<dyn age::Identity>>,
+) -> Result<()> {
+    let index = Index::parse(archive, &ids)?;
+    let matches = index.search(pattern);
+    for p in matches {
+        if index.is_file(&p) {
+            let size = index.du(&p)?;
+            let size_fmt = format_size(size, DECIMAL);
+            println!("{:12} {}", size_fmt, p.to_string_lossy());
+        } else {
+            println!(
+                "{:12} {}",
+                "-".blue().bold(),
+                p.to_string_lossy().blue().bold()
             );
         }
     }

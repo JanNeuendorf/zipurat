@@ -3,6 +3,7 @@ use crate::{
     utils::{GenericFile, blake3_hash_streaming, decrypt_and_decompress},
 };
 use anyhow::{Result, anyhow};
+use humansize::{DECIMAL, format_size};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::{
     fs,
@@ -64,14 +65,18 @@ fn copy_directory(
     pb.set_style(ProgressStyle::with_template("{bar:40} {pos:>7}/{len:7}\nfile: {msg}").unwrap());
 
     for (i, c) in children.iter().enumerate() {
-        pb.set_position(i as u64);
-        pb.set_message(format!("{}", c.to_string_lossy()));
-
         let from_path = from.join(c);
+        pb.set_position(i as u64);
+        let (_, size, hash_ref) = index.index_length_and_hash(&from_path)?;
+        pb.set_message(format!(
+            "{} ({})",
+            &c.to_string_lossy(),
+            format_size(size, DECIMAL)
+        ));
+
         let to_path = to.join(c);
         if trust && to_path.exists() {
             let hash_disk = blake3_hash_streaming(&mut fs::File::open(&to_path)?)?;
-            let (_, _, hash_ref) = index.index_length_and_hash(&from_path)?;
             if hash_ref == hash_disk {
                 continue;
             }
