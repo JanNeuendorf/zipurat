@@ -8,7 +8,9 @@ use fuser::{
     FileAttr, FileType, Filesystem, MountOption, ReplyAttr, ReplyData, ReplyDirectory, ReplyEntry,
     Request,
 };
+use indexmap::IndexMap;
 use libc::ENOENT;
+use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, UNIX_EPOCH};
@@ -20,6 +22,7 @@ struct ZipuratFS<'a> {
     archive: &'a mut GenericFile,
     ids: &'a Vec<Box<dyn age::Identity>>,
     ino_table: BiMap<u64, PathBuf>,
+    cache: FuseCache,
 }
 
 impl<'a> ZipuratFS<'a> {
@@ -63,6 +66,7 @@ impl<'a> ZipuratFS<'a> {
             archive,
             ino_table,
             ids,
+            cache: FuseCache::new(400, 20),
         })
     }
     fn get_file_attr(&self, path: &Path) -> Result<FileAttr> {
@@ -258,4 +262,39 @@ pub fn mount(
     }
     fuser::mount2(ZipuratFS::new(index, archive, ids)?, mountpoint, &options)?;
     Ok(())
+}
+
+struct FuseCache {
+    max_file_size: usize,
+    max_file_number: usize,
+    content: IndexMap<PathBuf, Vec<u8>>,
+}
+
+impl FuseCache {
+    fn new(size: usize, number: usize) -> Self {
+        Self {
+            max_file_size: size,
+            max_file_number: number,
+            content: IndexMap::new(),
+        }
+    }
+
+    fn get(&self, path: &Path) -> Option<Vec<u8>> {
+        self.content.get(path).cloned()
+    }
+    fn offer(&mut self, path: &Path, data: &[u8]) {
+        if data.len() > self.max_file_size {
+            return;
+        }
+        if self.max_file_number == 0 {
+            return;
+        }
+        if self.content.len() >= self.max_file_size {
+            let Some(key) = self.content.keys().next().cloned() else {
+                return;
+            };
+            self.content.shift_remove(&key);
+            self.content.insert(path.to_path_buf(), data.to_vec());
+        }
+    }
 }
