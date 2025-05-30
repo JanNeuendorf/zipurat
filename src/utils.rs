@@ -73,11 +73,11 @@ pub fn open_remote_archive_read(
     filename: &str,
     port: u64,
 ) -> Result<GenericFile> {
-    let tcp = TcpStream::connect(format!("{}:{}", host, port)).unwrap();
-    let mut sess = ssh2::Session::new().unwrap();
+    let tcp = TcpStream::connect(format!("{}:{}", host, port))?;
+    let mut sess = ssh2::Session::new()?;
     sess.set_tcp_stream(tcp);
-    sess.handshake().unwrap();
-    sess.userauth_agent(user).unwrap();
+    sess.handshake()?;
+    sess.userauth_agent(user)?;
     let sftp = sess.sftp()?;
     let path = Path::new(filename);
     let path = if path.is_absolute() {
@@ -96,11 +96,11 @@ pub fn open_remote_archive_write(
     filename: &str,
     port: u64,
 ) -> Result<GenericFile> {
-    let tcp = TcpStream::connect(format!("{}:{}", host, port)).unwrap();
-    let mut sess = ssh2::Session::new().unwrap();
+    let tcp = TcpStream::connect(format!("{}:{}", host, port))?;
+    let mut sess = ssh2::Session::new()?;
     sess.set_tcp_stream(tcp);
-    sess.handshake().unwrap();
-    sess.userauth_agent(user).unwrap();
+    sess.handshake()?;
+    sess.userauth_agent(user)?;
     let sftp = sess.sftp()?;
     let path = Path::new(filename);
     let path = if path.is_absolute() {

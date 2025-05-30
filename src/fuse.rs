@@ -11,6 +11,7 @@ use fuser::{
 };
 use indexmap::IndexMap;
 use libc::ENOENT;
+use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, UNIX_EPOCH};
@@ -23,7 +24,9 @@ struct ZipuratFS<'a> {
     archive: &'a mut GenericFile,
     ids: &'a Vec<Box<dyn age::Identity>>,
     ino_table: BiMap<u64, PathBuf>,
-    cache: FuseCache,
+    read_cache: FuseCache,
+    lookup_cache: HashMap<(u64, String), FileAttr>,
+    listing_cache: HashMap<u64, Vec<(u64, FileType, String)>>,
 }
 
 impl<'a> ZipuratFS<'a> {
@@ -63,13 +66,14 @@ impl<'a> ZipuratFS<'a> {
                 }
             }
         }
-        println!("Ready to mount");
         Ok(Self {
             index,
             archive,
             ino_table,
             ids,
-            cache: FuseCache::new(max_size, max_files),
+            read_cache: FuseCache::new(max_size, max_files),
+            lookup_cache: HashMap::new(),
+            listing_cache: HashMap::new(),
         })
     }
     fn get_file_attr(&self, path: &Path) -> Result<FileAttr> {
@@ -144,16 +148,24 @@ impl<'a> ZipuratFS<'a> {
 
 impl<'a> Filesystem for ZipuratFS<'a> {
     fn lookup(&mut self, _req: &Request, parent: u64, name: &OsStr, reply: ReplyEntry) {
+        if let Some(attr) = self.lookup_cache.get(&(parent, name.display().to_string())) {
+            // println!("cached lookup {:?}", name);
+            reply.entry(&TTL, attr, 0);
+            return;
+        }
         let Some(parent_dir) = self.ino_table.get_by_left(&parent) else {
             reply.error(ENOENT);
             return;
         };
         let path = parent_dir.join(name);
-        println!("lookup {:?}", path);
+        // println!("lookup {:?}", path);
+        // dbg!(self.lookup_cache.len());
         let Ok(attr) = self.get_general_attr(&path) else {
             reply.error(ENOENT);
             return;
         };
+        self.lookup_cache
+            .insert((parent, name.display().to_string()), attr);
         reply.entry(&TTL, &attr, 0);
     }
 
@@ -208,14 +220,14 @@ impl<'a> Filesystem for ZipuratFS<'a> {
             return;
         }
 
-        if let Some(cached) = self.cache.get(path) {
+        if let Some(cached) = self.read_cache.get(path) {
             buffer = cached;
         } else {
             if stream_file(self.archive, path, &mut buffer, self.index, self.ids).is_err() {
                 reply.error(ENOENT);
                 return;
             }
-            self.cache.offer(path, buffer.as_slice());
+            self.read_cache.offer(path, buffer.as_slice());
         }
         let read_size = std::cmp::min(
             size,
@@ -232,11 +244,21 @@ impl<'a> Filesystem for ZipuratFS<'a> {
         offset: i64,
         mut reply: ReplyDirectory,
     ) {
+        if let Some(entries) = self.listing_cache.get(&ino).cloned() {
+            // println!("cached listing");
+            for (i, entry) in entries.into_iter().enumerate().skip(offset as usize) {
+                if reply.add(entry.0, (i + 1) as i64, entry.1, entry.2) {
+                    break;
+                }
+            }
+            reply.ok();
+            return;
+        }
         let Some(path) = self.ino_table.get_by_left(&ino) else {
             reply.error(ENOENT);
             return;
         };
-        println!("listing {:?}", path);
+        // println!("listing {:?}", path);
         if !self.index.is_dir(path) {
             reply.error(ENOENT);
             return;
@@ -247,8 +269,8 @@ impl<'a> Filesystem for ZipuratFS<'a> {
             _ => ino,
         };
         let mut entries = vec![
-            (ino, FileType::Directory, "."),
-            (parent_ino, FileType::Directory, ".."),
+            (ino, FileType::Directory, ".".to_string()),
+            (parent_ino, FileType::Directory, "..".to_string()),
         ];
         let Ok(children) = self.index.get_direct_children(path) else {
             reply.error(ENOENT);
@@ -268,9 +290,10 @@ impl<'a> Filesystem for ZipuratFS<'a> {
                     .expect("File prefix error")
                     .to_str()
                     .expect("must be utf8");
-                entries.push((*i, ft, name));
+                entries.push((*i, ft, name.to_string()));
             }
         }
+        self.listing_cache.insert(ino, entries.clone());
 
         for (i, entry) in entries.into_iter().enumerate().skip(offset as usize) {
             // i + 1 means the index of the next entry
