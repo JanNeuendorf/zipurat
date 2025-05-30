@@ -114,6 +114,22 @@ impl Index {
             magic_number: self.magic_number,
         })
     }
+    pub fn get_direct_children(&self, path: &Path) -> Result<HashSet<PathBuf>> {
+        let mut children = HashSet::new();
+        let si = self.subindex(path)?;
+        for file in si.mapping.keys() {
+            let root = file.components().next().context("No first component")?;
+            let childpath = path.to_path_buf().join(root);
+            children.insert(childpath);
+        }
+        for ed in si.empty_dirs {
+            let root = ed.components().next().context("No first component")?;
+            let childpath = path.to_path_buf().join(root);
+            children.insert(childpath);
+        }
+
+        Ok(children)
+    }
 
     pub fn search(&self, pattern: &str) -> HashSet<PathBuf> {
         let mut matches = HashSet::new();

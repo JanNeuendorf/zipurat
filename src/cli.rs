@@ -10,6 +10,7 @@ use clap::{Parser, Subcommand};
 use humansize::{DECIMAL, format_size};
 
 use crate::{
+    fuse::mount,
     restore::{copy_file, restore_command, stream_file},
     serializer::SimpleBinRepr,
 };
@@ -48,6 +49,11 @@ pub enum Commands {
     List {
         #[arg(help = "directory to list")]
         prefix: Option<PathBuf>,
+    },
+    #[command(about = "Mount an archive with fuse")]
+    Mount {
+        #[arg(help = "Mount point")]
+        mount_point: PathBuf,
     },
     #[command(about = "Search for files or directories", alias = "search")]
     Find {
@@ -158,6 +164,18 @@ impl Cli {
                 };
 
                 list_command(&mut archive, &prefix, identities)?
+            }
+            Commands::Mount { mount_point } => {
+                let mut archive = open_general_archive_read(&self.archive)?;
+                let identities = load_identities(self.identity_file.as_ref())?;
+                let index = Index::parse(&mut archive, &identities)?;
+
+                mount(
+                    &index,
+                    &mut archive,
+                    mount_point.to_str().context("Invalid mount point")?,
+                    &identities,
+                )?
             }
             Commands::Info {} => {
                 let mut archive = open_general_archive_read(&self.archive)?;
