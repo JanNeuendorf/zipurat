@@ -27,6 +27,7 @@ struct ZipuratFS<'a> {
     read_cache: FuseCache,
     lookup_cache: HashMap<(u64, String), FileAttr>,
     listing_cache: HashMap<u64, Vec<(u64, FileType, String)>>,
+    attribute_cache: HashMap<u64, FileAttr>,
 }
 
 impl<'a> ZipuratFS<'a> {
@@ -74,6 +75,7 @@ impl<'a> ZipuratFS<'a> {
             read_cache: FuseCache::new(max_size, max_files),
             lookup_cache: HashMap::new(),
             listing_cache: HashMap::new(),
+            attribute_cache: HashMap::new(),
         })
     }
     fn get_file_attr(&self, path: &Path) -> Result<FileAttr> {
@@ -170,14 +172,21 @@ impl<'a> Filesystem for ZipuratFS<'a> {
     }
 
     fn getattr(&mut self, _req: &Request, ino: u64, _fh: Option<u64>, reply: ReplyAttr) {
+        if let Some(attr) = self.attribute_cache.get(&ino) {
+            reply.attr(&TTL, attr);
+            return;
+        }
         let Some(path) = self.ino_table.get_by_left(&ino) else {
             reply.error(ENOENT);
             return;
         };
+        println!("getting attributes {:?}", path);
         let Ok(attr) = self.get_general_attr(path) else {
             reply.error(ENOENT);
             return;
         };
+        println!("done getting attributes {:?}", path);
+        self.attribute_cache.insert(ino, attr);
         reply.attr(&TTL, &attr);
     }
 
