@@ -60,6 +60,14 @@ pub enum Commands {
             default_value = "false"
         )]
         auto_unmount: bool,
+        #[arg(long, help = "Max number of cached files", default_value = "30")]
+        cached_files: usize,
+        #[arg(
+            long,
+            help = "Max size of cached files (bytes)",
+            default_value = "50000000"
+        )]
+        cached_size: usize,
     },
     #[command(about = "Search for files or directories", alias = "search")]
     Find {
@@ -174,6 +182,8 @@ impl Cli {
             Commands::Mount {
                 mount_point,
                 auto_unmount,
+                cached_files,
+                cached_size,
             } => {
                 let mut archive = open_general_archive_read(&self.archive)?;
                 let identities = load_identities(self.identity_file.as_ref())?;
@@ -185,6 +195,8 @@ impl Cli {
                     mount_point.to_str().context("Invalid mount point")?,
                     &identities,
                     *auto_unmount,
+                    *cached_files,
+                    *cached_size,
                 )?
             }
             Commands::Info {} => {

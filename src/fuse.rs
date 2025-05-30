@@ -1,5 +1,6 @@
 use crate::index::Index;
 use crate::restore::stream_file;
+use crate::restore::stream_file_head;
 use crate::utils::GenericFile;
 use anyhow::Context;
 use anyhow::Result;
@@ -10,12 +11,12 @@ use fuser::{
 };
 use indexmap::IndexMap;
 use libc::ENOENT;
-use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, UNIX_EPOCH};
 
 const TTL: Duration = Duration::from_secs(1); // 1 second
+const HEADBYTES: u32 = 40000;
 
 struct ZipuratFS<'a> {
     index: &'a Index,
@@ -30,6 +31,8 @@ impl<'a> ZipuratFS<'a> {
         index: &'a Index,
         archive: &'a mut GenericFile,
         ids: &'a Vec<Box<dyn age::Identity>>,
+        max_files: usize,
+        max_size: usize,
     ) -> Result<Self> {
         let mut ino_table = BiMap::new();
         ino_table.insert(1, Path::new("").to_path_buf());
@@ -60,13 +63,13 @@ impl<'a> ZipuratFS<'a> {
                 }
             }
         }
-
+        println!("Ready to mount");
         Ok(Self {
             index,
             archive,
             ino_table,
             ids,
-            cache: FuseCache::new(400, 20),
+            cache: FuseCache::new(max_size, max_files),
         })
     }
     fn get_file_attr(&self, path: &Path) -> Result<FileAttr> {
@@ -146,6 +149,7 @@ impl<'a> Filesystem for ZipuratFS<'a> {
             return;
         };
         let path = parent_dir.join(name);
+        println!("lookup {:?}", path);
         let Ok(attr) = self.get_general_attr(&path) else {
             reply.error(ENOENT);
             return;
@@ -180,16 +184,44 @@ impl<'a> Filesystem for ZipuratFS<'a> {
             reply.error(ENOENT);
             return;
         };
+        println!("reading {:?} {} {}", path, offset, size);
         let mut buffer: Vec<u8> = vec![];
-        if stream_file(self.archive, path, &mut buffer, self.index, self.ids).is_ok() {
+        if offset == 0 && size < HEADBYTES {
+            if stream_file_head(
+                self.archive,
+                path,
+                &mut buffer,
+                self.index,
+                size as u64,
+                self.ids,
+            )
+            .is_err()
+            {
+                reply.error(ENOENT);
+                return;
+            }
             let read_size = std::cmp::min(
                 size,
                 (buffer.len() as u64).saturating_sub(offset as u64) as u32,
             );
             reply.data(&buffer.as_slice()[offset as usize..offset as usize + read_size as usize]);
-        } else {
-            reply.error(ENOENT);
+            return;
         }
+
+        if let Some(cached) = self.cache.get(path) {
+            buffer = cached;
+        } else {
+            if stream_file(self.archive, path, &mut buffer, self.index, self.ids).is_err() {
+                reply.error(ENOENT);
+                return;
+            }
+            self.cache.offer(path, buffer.as_slice());
+        }
+        let read_size = std::cmp::min(
+            size,
+            (buffer.len() as u64).saturating_sub(offset as u64) as u32,
+        );
+        reply.data(&buffer.as_slice()[offset as usize..offset as usize + read_size as usize]);
     }
 
     fn readdir(
@@ -204,6 +236,7 @@ impl<'a> Filesystem for ZipuratFS<'a> {
             reply.error(ENOENT);
             return;
         };
+        println!("listing {:?}", path);
         if !self.index.is_dir(path) {
             reply.error(ENOENT);
             return;
@@ -255,12 +288,18 @@ pub fn mount(
     mountpoint: &str,
     ids: &Vec<Box<dyn age::Identity>>,
     auto: bool,
+    max_files: usize,
+    max_size: usize,
 ) -> Result<()> {
     let mut options = vec![MountOption::RO, MountOption::FSName("zipurat".to_string())];
     if auto {
         options.push(MountOption::AutoUnmount);
     }
-    fuser::mount2(ZipuratFS::new(index, archive, ids)?, mountpoint, &options)?;
+    fuser::mount2(
+        ZipuratFS::new(index, archive, ids, max_files, max_size)?,
+        mountpoint,
+        &options,
+    )?;
     Ok(())
 }
 
@@ -289,12 +328,12 @@ impl FuseCache {
         if self.max_file_number == 0 {
             return;
         }
-        if self.content.len() >= self.max_file_size {
+        while self.content.len() >= self.max_file_number {
             let Some(key) = self.content.keys().next().cloned() else {
                 return;
             };
             self.content.shift_remove(&key);
-            self.content.insert(path.to_path_buf(), data.to_vec());
         }
+        self.content.insert(path.to_path_buf(), data.to_vec());
     }
 }

@@ -19,6 +19,20 @@ pub fn decrypt_and_decompress<R: Read, W: Write>(
     std::io::copy(&mut decoder, sink)?;
     Ok(())
 }
+pub fn decrypt_and_decompress_head<R: Read, W: Write>(
+    source: &mut R,
+    sink: &mut W,
+    len: u64,
+    write_only: u64,
+    ids: &Vec<Box<dyn age::Identity>>,
+) -> Result<()> {
+    let decryptor = age::Decryptor::new(source.take(len))?;
+    let mut decrypted_reader =
+        decryptor.decrypt(ids.iter().map(|k| k.as_ref() as &dyn age::Identity))?;
+    let decoder = Decoder::new(&mut decrypted_reader)?;
+    std::io::copy(&mut decoder.take(write_only), sink)?;
+    Ok(())
+}
 
 pub fn compress_and_encrypt<R: Read, W: Write>(
     source: &mut R,

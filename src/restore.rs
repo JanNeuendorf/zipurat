@@ -1,6 +1,8 @@
 use crate::{
     index::Index,
-    utils::{GenericFile, blake3_hash_streaming, decrypt_and_decompress},
+    utils::{
+        GenericFile, blake3_hash_streaming, decrypt_and_decompress, decrypt_and_decompress_head,
+    },
 };
 use anyhow::{Result, anyhow};
 use humansize::{DECIMAL, format_size};
@@ -38,6 +40,19 @@ pub fn stream_file<W: Write>(
     let (i, len, _) = index.index_length_and_hash(from)?;
     archive.seek(std::io::SeekFrom::Start(i))?;
     decrypt_and_decompress(archive, to, len, ids)?;
+    Ok(())
+}
+pub fn stream_file_head<W: Write>(
+    archive: &mut GenericFile,
+    from: &Path,
+    to: &mut W,
+    index: &Index,
+    write_only: u64,
+    ids: &Vec<Box<dyn age::Identity>>,
+) -> Result<()> {
+    let (i, len, _) = index.index_length_and_hash(from)?;
+    archive.seek(std::io::SeekFrom::Start(i))?;
+    decrypt_and_decompress_head(archive, to, len, write_only, ids)?;
     Ok(())
 }
 pub fn copy_file(
