@@ -29,7 +29,8 @@ impl<'a> ZipuratFS<'a> {
         ids: &'a Vec<Box<dyn age::Identity>>,
     ) -> Result<Self> {
         let mut ino_table = BiMap::new();
-        let mut ino: u64 = 1;
+        ino_table.insert(1, Path::new("").to_path_buf());
+        let mut ino: u64 = 2;
         for filepath in index.mapping.keys() {
             ino_table.insert(ino, filepath.clone());
             ino += 1;
@@ -125,8 +126,12 @@ impl<'a> ZipuratFS<'a> {
         }
     }
     fn get_parent_inode(&self, path: &Path) -> Option<u64> {
-        let p = path.parent()?;
-        self.ino_table.get_by_right(p).copied()
+        if path == Path::new("") {
+            Some(1)
+        } else {
+            let p = path.parent()?;
+            self.ino_table.get_by_right(p).copied()
+        }
     }
 }
 
@@ -162,7 +167,7 @@ impl<'a> Filesystem for ZipuratFS<'a> {
         ino: u64,
         _fh: u64,
         offset: i64,
-        _size: u32,
+        size: u32,
         _flags: i32,
         _lock: Option<u64>,
         reply: ReplyData,
@@ -173,7 +178,11 @@ impl<'a> Filesystem for ZipuratFS<'a> {
         };
         let mut buffer: Vec<u8> = vec![];
         if stream_file(self.archive, path, &mut buffer, self.index, self.ids).is_ok() {
-            reply.data(&buffer.as_slice()[offset as usize..]);
+            let read_size = std::cmp::min(
+                size,
+                (buffer.len() as u64).saturating_sub(offset as u64) as u32,
+            );
+            reply.data(&buffer.as_slice()[offset as usize..offset as usize + read_size as usize]);
         } else {
             reply.error(ENOENT);
         }
@@ -208,7 +217,9 @@ impl<'a> Filesystem for ZipuratFS<'a> {
             reply.error(ENOENT);
             return;
         };
-        for c in &children {
+        let mut sorted: Vec<PathBuf> = children.iter().map(|p| p.to_owned()).collect();
+        sorted.sort();
+        for c in &sorted {
             if let Some(i) = self.ino_table.get_by_right(c) {
                 let ft = if self.index.is_file(c) {
                     FileType::RegularFile
@@ -239,11 +250,12 @@ pub fn mount(
     archive: &mut GenericFile,
     mountpoint: &str,
     ids: &Vec<Box<dyn age::Identity>>,
+    auto: bool,
 ) -> Result<()> {
-    let mut options = vec![MountOption::RO, MountOption::FSName("hello".to_string())];
-    options.push(MountOption::AllowRoot);
-    options.push(MountOption::AllowOther);
-    options.push(MountOption::AutoUnmount);
+    let mut options = vec![MountOption::RO, MountOption::FSName("zipurat".to_string())];
+    if auto {
+        options.push(MountOption::AutoUnmount);
+    }
     fuser::mount2(ZipuratFS::new(index, archive, ids)?, mountpoint, &options)?;
     Ok(())
 }

@@ -54,6 +54,12 @@ pub enum Commands {
     Mount {
         #[arg(help = "Mount point")]
         mount_point: PathBuf,
+        #[arg(
+            long,
+            help = "Auto unmount (requires permissions)",
+            default_value = "false"
+        )]
+        auto_unmount: bool,
     },
     #[command(about = "Search for files or directories", alias = "search")]
     Find {
@@ -165,7 +171,10 @@ impl Cli {
 
                 list_command(&mut archive, &prefix, identities)?
             }
-            Commands::Mount { mount_point } => {
+            Commands::Mount {
+                mount_point,
+                auto_unmount,
+            } => {
                 let mut archive = open_general_archive_read(&self.archive)?;
                 let identities = load_identities(self.identity_file.as_ref())?;
                 let index = Index::parse(&mut archive, &identities)?;
@@ -175,6 +184,7 @@ impl Cli {
                     &mut archive,
                     mount_point.to_str().context("Invalid mount point")?,
                     &identities,
+                    *auto_unmount,
                 )?
             }
             Commands::Info {} => {
