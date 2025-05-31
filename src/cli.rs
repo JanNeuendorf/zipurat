@@ -50,27 +50,6 @@ pub enum Commands {
         #[arg(help = "directory to list")]
         prefix: Option<PathBuf>,
     },
-    #[command(about = "Mount an archive with fuse")]
-    Mount {
-        #[arg(help = "Mount point")]
-        mount_point: PathBuf,
-        #[arg(
-            long,
-            help = "Auto unmount (requires permissions)",
-            default_value = "false"
-        )]
-        auto_unmount: bool,
-        #[arg(long, help = "Max number of cached files", default_value = "30")]
-        cached_files: usize,
-        #[arg(
-            long,
-            help = "Max size of cached files (bytes)",
-            default_value = "50000000"
-        )]
-        cached_size: usize,
-        #[arg(long, short, help = "sub-directory to mount")]
-        sub_directory: Option<PathBuf>,
-    },
     #[command(about = "Search for files or directories", alias = "search")]
     Find {
         #[arg(help = "name to search for")]
@@ -100,6 +79,28 @@ pub enum Commands {
         path: Option<PathBuf>,
         #[arg(short, help = "Human readable", default_value = "false")]
         humansize: bool,
+    },
+    #[command(about = "Mount an archive with fuse")]
+    Mount {
+        #[arg(help = "Mount point")]
+        mount_point: PathBuf,
+        #[arg(
+            long,
+            short,
+            help = "Auto unmount (requires permissions)",
+            default_value = "false"
+        )]
+        auto_unmount: bool,
+        #[arg(long, help = "Max number of cached files", default_value = "30")]
+        cached_files: usize,
+        #[arg(
+            long,
+            help = "Max size of cached files (bytes)",
+            default_value = "50000000"
+        )]
+        cached_size: usize,
+        #[arg(long, short, help = "sub-directory to mount")]
+        sub_directory: Option<PathBuf>,
     },
     #[command(about = "Get archive information")]
     Info {},
