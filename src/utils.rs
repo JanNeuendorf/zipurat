@@ -19,6 +19,20 @@ pub fn decrypt_and_decompress<R: Read, W: Write>(
     std::io::copy(&mut decoder, sink)?;
     Ok(())
 }
+pub fn decrypt_and_decompress_head<R: Read, W: Write>(
+    source: &mut R,
+    sink: &mut W,
+    len: u64,
+    write_only: u64,
+    ids: &Vec<Box<dyn age::Identity>>,
+) -> Result<()> {
+    let decryptor = age::Decryptor::new(source.take(len))?;
+    let mut decrypted_reader =
+        decryptor.decrypt(ids.iter().map(|k| k.as_ref() as &dyn age::Identity))?;
+    let decoder = Decoder::new(&mut decrypted_reader)?;
+    std::io::copy(&mut decoder.take(write_only), sink)?;
+    Ok(())
+}
 
 pub fn compress_and_encrypt<R: Read, W: Write>(
     source: &mut R,
@@ -59,11 +73,19 @@ pub fn open_remote_archive_read(
     filename: &str,
     port: u64,
 ) -> Result<GenericFile> {
-    let tcp = TcpStream::connect(format!("{}:{}", host, port)).unwrap();
-    let mut sess = ssh2::Session::new().unwrap();
+    let tcp = TcpStream::connect(format!("{}:{}", host, port))?;
+    let mut sess = ssh2::Session::new()?;
     sess.set_tcp_stream(tcp);
-    sess.handshake().unwrap();
-    sess.userauth_agent(user).unwrap();
+    sess.handshake()?;
+    // sess.userauth_agent(user)?;
+    let mut agent = sess.agent()?;
+    agent.connect()?;
+    agent.list_identities()?;
+    for identity in agent.identities()? {
+        if agent.userauth(user, &identity).is_ok() {
+            break;
+        }
+    }
     let sftp = sess.sftp()?;
     let path = Path::new(filename);
     let path = if path.is_absolute() {
@@ -82,11 +104,11 @@ pub fn open_remote_archive_write(
     filename: &str,
     port: u64,
 ) -> Result<GenericFile> {
-    let tcp = TcpStream::connect(format!("{}:{}", host, port)).unwrap();
-    let mut sess = ssh2::Session::new().unwrap();
+    let tcp = TcpStream::connect(format!("{}:{}", host, port))?;
+    let mut sess = ssh2::Session::new()?;
     sess.set_tcp_stream(tcp);
-    sess.handshake().unwrap();
-    sess.userauth_agent(user).unwrap();
+    sess.handshake()?;
+    sess.userauth_agent(user)?;
     let sftp = sess.sftp()?;
     let path = Path::new(filename);
     let path = if path.is_absolute() {

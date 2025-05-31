@@ -10,6 +10,7 @@ use clap::{Parser, Subcommand};
 use humansize::{DECIMAL, format_size};
 
 use crate::{
+    fuse::mount,
     restore::{copy_file, restore_command, stream_file},
     serializer::SimpleBinRepr,
 };
@@ -78,6 +79,28 @@ pub enum Commands {
         path: Option<PathBuf>,
         #[arg(short, help = "Human readable", default_value = "false")]
         humansize: bool,
+    },
+    #[command(about = "Mount an archive with fuse")]
+    Mount {
+        #[arg(help = "Mount point")]
+        mount_point: PathBuf,
+        #[arg(
+            long,
+            short,
+            help = "Auto unmount (requires permissions)",
+            default_value = "false"
+        )]
+        auto_unmount: bool,
+        #[arg(long, help = "Max number of cached files", default_value = "30")]
+        cached_files: usize,
+        #[arg(
+            long,
+            help = "Max size of cached files (bytes)",
+            default_value = "50000000"
+        )]
+        cached_size: usize,
+        #[arg(long, short, help = "sub-directory to mount")]
+        sub_directory: Option<PathBuf>,
     },
     #[command(about = "Get archive information")]
     Info {},
@@ -158,6 +181,30 @@ impl Cli {
                 };
 
                 list_command(&mut archive, &prefix, identities)?
+            }
+            Commands::Mount {
+                mount_point,
+                auto_unmount,
+                cached_files,
+                cached_size,
+                sub_directory,
+            } => {
+                let mut archive = open_general_archive_read(&self.archive)?;
+                let identities = load_identities(self.identity_file.as_ref())?;
+                let mut index = Index::parse(&mut archive, &identities)?;
+                if let Some(sub) = sub_directory {
+                    index = index.subindex(sub)?;
+                }
+
+                mount(
+                    &index,
+                    &mut archive,
+                    mount_point.to_str().context("Invalid mount point")?,
+                    &identities,
+                    *auto_unmount,
+                    *cached_files,
+                    *cached_size,
+                )?
             }
             Commands::Info {} => {
                 let mut archive = open_general_archive_read(&self.archive)?;

@@ -34,6 +34,7 @@ filesystem.
 - Simple and well described format (It should be possible to get your data
   without this repo.)
 - Small files (thanks to deduplication and compression)
+- Easy to mount (with FUSE) to browse files 
 
 ## The non-goals
 
@@ -106,8 +107,10 @@ Commands:
   create   Create an archive
   show     Show the contents of a single file
   list     List a directory
+  find     Search for files or directories
   restore  Restore a file or directory from the archive
   du       Get the (uncompressed) size
+  mount    Mount an archive with fuse
   info     Get archive information
 ```
 

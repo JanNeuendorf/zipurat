@@ -3,6 +3,7 @@ use colored::*;
 
 mod archiver;
 mod cli;
+mod fuse;
 mod index;
 mod restore;
 mod serializer;

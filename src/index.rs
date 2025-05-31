@@ -71,6 +71,15 @@ impl Index {
         }
     }
     pub fn subindex(&self, subpath: &Path) -> Result<Self> {
+        if self.empty_dirs.contains(&subpath.to_path_buf()) {
+            return Ok(Self {
+                hashes: HashMap::new(),
+                mapping: HashMap::new(),
+                sizes: HashMap::new(),
+                empty_dirs: vec![],
+                magic_number: self.magic_number,
+            });
+        }
         if !self.is_dir(subpath) {
             return Err(anyhow!(
                 "{} is not a directory in index",
@@ -113,6 +122,22 @@ impl Index {
             empty_dirs: new_empties,
             magic_number: self.magic_number,
         })
+    }
+    pub fn get_direct_children(&self, path: &Path) -> Result<HashSet<PathBuf>> {
+        let mut children = HashSet::new();
+        let si = self.subindex(path)?;
+        for file in si.mapping.keys() {
+            let root = file.components().next().context("No first component")?;
+            let childpath = path.to_path_buf().join(root);
+            children.insert(childpath);
+        }
+        for ed in si.empty_dirs {
+            let root = ed.components().next().context("No first component")?;
+            let childpath = path.to_path_buf().join(root);
+            children.insert(childpath);
+        }
+
+        Ok(children)
     }
 
     pub fn search(&self, pattern: &str) -> HashSet<PathBuf> {
