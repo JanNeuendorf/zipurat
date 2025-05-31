@@ -80,6 +80,15 @@ impl<'a> ZipuratFS<'a> {
             head_cache: HashMap::new(),
         })
     }
+    fn get_size_by_ino(&self, ino: u64) -> Result<u64> {
+        let path = self.ino_table.get_by_left(&ino).context("Ino not found")?;
+        let map_index = self.index.mapping.get(path).context("path not found")?.0;
+        self.index
+            .sizes
+            .get(&map_index)
+            .context("Size not found in index")
+            .copied()
+    }
     fn get_file_attr(&self, path: &Path) -> Result<FileAttr> {
         let map_index = self.index.mapping.get(path).context("path not found")?.0;
 
@@ -153,7 +162,6 @@ impl<'a> ZipuratFS<'a> {
 impl<'a> Filesystem for ZipuratFS<'a> {
     fn lookup(&mut self, _req: &Request, parent: u64, name: &OsStr, reply: ReplyEntry) {
         if let Some(attr) = self.lookup_cache.get(&(parent, name.display().to_string())) {
-            // println!("cached lookup {:?}", name);
             reply.entry(&TTL, attr, 0);
             return;
         }
@@ -162,8 +170,6 @@ impl<'a> Filesystem for ZipuratFS<'a> {
             return;
         };
         let path = parent_dir.join(name);
-        // println!("lookup {:?}", path);
-        // dbg!(self.lookup_cache.len());
         let Ok(attr) = self.get_general_attr(&path) else {
             reply.error(ENOENT);
             return;
@@ -182,12 +188,10 @@ impl<'a> Filesystem for ZipuratFS<'a> {
             reply.error(ENOENT);
             return;
         };
-        println!("getting attributes {:?}", path);
         let Ok(attr) = self.get_general_attr(path) else {
             reply.error(ENOENT);
             return;
         };
-        println!("done getting attributes {:?}", path);
         self.attribute_cache.insert(ino, attr);
         reply.attr(&TTL, &attr);
     }
@@ -207,13 +211,17 @@ impl<'a> Filesystem for ZipuratFS<'a> {
             reply.error(ENOENT);
             return;
         };
-        println!("reading {:?} {} {}", path, offset, size);
+        if !self.index.is_file(path) {
+            reply.error(ENOENT);
+            return;
+        }
         let mut buffer: Vec<u8> = vec![];
-        if let Some(cached) = self.head_cache.get(&ino) {
-            println!("found head {:?} {} {}", path, offset, size);
-            buffer = cached.clone();
-        } else {
-            if offset == 0 && size < HEADBYTES {
+        let file_size = self.get_size_by_ino(ino).expect("Could not get file size");
+        let read_size = std::cmp::min(size, file_size.saturating_sub(offset as u64) as u32);
+        if offset == 0 && size < HEADBYTES {
+            if let Some(cached) = self.head_cache.get(&ino) {
+                buffer = cached.clone();
+            } else {
                 if stream_file_head(
                     self.archive,
                     path,
@@ -229,28 +237,23 @@ impl<'a> Filesystem for ZipuratFS<'a> {
                 }
                 self.head_cache.insert(ino, buffer.clone());
             }
-            let read_size = std::cmp::min(
-                size,
-                (buffer.len() as u64).saturating_sub(offset as u64) as u32,
-            );
+
             reply.data(&buffer.as_slice()[offset as usize..offset as usize + read_size as usize]);
             return;
         }
 
         if let Some(cached) = self.read_cache.get(path) {
-            buffer = cached;
+            reply.data(&cached[offset as usize..offset as usize + read_size as usize]);
+            return;
         } else {
+            println!("loading {:?}", path);
             if stream_file(self.archive, path, &mut buffer, self.index, self.ids).is_err() {
                 reply.error(ENOENT);
                 return;
             }
             self.read_cache.offer(path, buffer.as_slice());
+            reply.data(&buffer.as_slice()[offset as usize..offset as usize + read_size as usize]);
         }
-        let read_size = std::cmp::min(
-            size,
-            (buffer.len() as u64).saturating_sub(offset as u64) as u32,
-        );
-        reply.data(&buffer.as_slice()[offset as usize..offset as usize + read_size as usize]);
     }
 
     fn readdir(
@@ -262,7 +265,6 @@ impl<'a> Filesystem for ZipuratFS<'a> {
         mut reply: ReplyDirectory,
     ) {
         if let Some(entries) = self.listing_cache.get(&ino).cloned() {
-            // println!("cached listing");
             for (i, entry) in entries.into_iter().enumerate().skip(offset as usize) {
                 if reply.add(entry.0, (i + 1) as i64, entry.1, entry.2) {
                     break;
@@ -275,7 +277,6 @@ impl<'a> Filesystem for ZipuratFS<'a> {
             reply.error(ENOENT);
             return;
         };
-        // println!("listing {:?}", path);
         if !self.index.is_dir(path) {
             reply.error(ENOENT);
             return;
@@ -358,8 +359,8 @@ impl FuseCache {
         }
     }
 
-    fn get(&self, path: &Path) -> Option<Vec<u8>> {
-        self.content.get(path).cloned()
+    fn get(&self, path: &Path) -> Option<&[u8]> {
+        self.content.get(path).map(|v| v.as_slice())
     }
     fn offer(&mut self, path: &Path, data: &[u8]) {
         if data.len() > self.max_file_size {
