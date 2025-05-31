@@ -77,7 +77,15 @@ pub fn open_remote_archive_read(
     let mut sess = ssh2::Session::new()?;
     sess.set_tcp_stream(tcp);
     sess.handshake()?;
-    sess.userauth_agent(user)?;
+    // sess.userauth_agent(user)?;
+    let mut agent = sess.agent()?;
+    agent.connect()?;
+    agent.list_identities()?;
+    for identity in agent.identities()? {
+        if agent.userauth(user, &identity).is_ok() {
+            break;
+        }
+    }
     let sftp = sess.sftp()?;
     let path = Path::new(filename);
     let path = if path.is_absolute() {

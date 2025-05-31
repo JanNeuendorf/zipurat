@@ -28,6 +28,7 @@ struct ZipuratFS<'a> {
     lookup_cache: HashMap<(u64, String), FileAttr>,
     listing_cache: HashMap<u64, Vec<(u64, FileType, String)>>,
     attribute_cache: HashMap<u64, FileAttr>,
+    head_cache: HashMap<u64, Vec<u8>>,
 }
 
 impl<'a> ZipuratFS<'a> {
@@ -76,6 +77,7 @@ impl<'a> ZipuratFS<'a> {
             lookup_cache: HashMap::new(),
             listing_cache: HashMap::new(),
             attribute_cache: HashMap::new(),
+            head_cache: HashMap::new(),
         })
     }
     fn get_file_attr(&self, path: &Path) -> Result<FileAttr> {
@@ -207,19 +209,25 @@ impl<'a> Filesystem for ZipuratFS<'a> {
         };
         println!("reading {:?} {} {}", path, offset, size);
         let mut buffer: Vec<u8> = vec![];
-        if offset == 0 && size < HEADBYTES {
-            if stream_file_head(
-                self.archive,
-                path,
-                &mut buffer,
-                self.index,
-                size as u64,
-                self.ids,
-            )
-            .is_err()
-            {
-                reply.error(ENOENT);
-                return;
+        if let Some(cached) = self.head_cache.get(&ino) {
+            println!("found head {:?} {} {}", path, offset, size);
+            buffer = cached.clone();
+        } else {
+            if offset == 0 && size < HEADBYTES {
+                if stream_file_head(
+                    self.archive,
+                    path,
+                    &mut buffer,
+                    self.index,
+                    HEADBYTES as u64,
+                    self.ids,
+                )
+                .is_err()
+                {
+                    reply.error(ENOENT);
+                    return;
+                }
+                self.head_cache.insert(ino, buffer.clone());
             }
             let read_size = std::cmp::min(
                 size,
