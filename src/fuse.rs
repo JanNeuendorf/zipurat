@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, UNIX_EPOCH};
 
 const TTL: Duration = Duration::from_secs(1); // 1 second
-const HEADBYTES: u32 = 40000;
+const HEADBYTES: u32 = 50000;
 
 struct ZipuratFS<'a> {
     index: &'a Index,
@@ -222,6 +222,7 @@ impl<'a> Filesystem for ZipuratFS<'a> {
             if let Some(cached) = self.head_cache.get(&ino) {
                 buffer = cached.clone();
             } else {
+                println!("loading head {:?}", path);
                 if stream_file_head(
                     self.archive,
                     path,
@@ -246,7 +247,11 @@ impl<'a> Filesystem for ZipuratFS<'a> {
             reply.data(&cached[offset as usize..offset as usize + read_size as usize]);
             return;
         } else {
-            println!("loading {:?}", path);
+            println!(
+                "loading {:?} ({})",
+                path,
+                humansize::format_size(file_size, humansize::DECIMAL)
+            );
             if stream_file(self.archive, path, &mut buffer, self.index, self.ids).is_err() {
                 reply.error(ENOENT);
                 return;
@@ -314,7 +319,6 @@ impl<'a> Filesystem for ZipuratFS<'a> {
         self.listing_cache.insert(ino, entries.clone());
 
         for (i, entry) in entries.into_iter().enumerate().skip(offset as usize) {
-            // i + 1 means the index of the next entry
             if reply.add(entry.0, (i + 1) as i64, entry.1, entry.2) {
                 break;
             }

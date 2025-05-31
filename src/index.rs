@@ -71,6 +71,15 @@ impl Index {
         }
     }
     pub fn subindex(&self, subpath: &Path) -> Result<Self> {
+        if self.empty_dirs.contains(&subpath.to_path_buf()) {
+            return Ok(Self {
+                hashes: HashMap::new(),
+                mapping: HashMap::new(),
+                sizes: HashMap::new(),
+                empty_dirs: vec![],
+                magic_number: self.magic_number,
+            });
+        }
         if !self.is_dir(subpath) {
             return Err(anyhow!(
                 "{} is not a directory in index",
