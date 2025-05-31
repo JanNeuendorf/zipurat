@@ -68,6 +68,8 @@ pub enum Commands {
             default_value = "50000000"
         )]
         cached_size: usize,
+        #[arg(long, short, help = "sub-directory to mount")]
+        sub_directory: Option<PathBuf>,
     },
     #[command(about = "Search for files or directories", alias = "search")]
     Find {
@@ -184,10 +186,14 @@ impl Cli {
                 auto_unmount,
                 cached_files,
                 cached_size,
+                sub_directory,
             } => {
                 let mut archive = open_general_archive_read(&self.archive)?;
                 let identities = load_identities(self.identity_file.as_ref())?;
-                let index = Index::parse(&mut archive, &identities)?;
+                let mut index = Index::parse(&mut archive, &identities)?;
+                if let Some(sub) = sub_directory {
+                    index = index.subindex(sub)?;
+                }
 
                 mount(
                     &index,
