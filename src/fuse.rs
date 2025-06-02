@@ -29,6 +29,7 @@ struct ZipuratFS<'a> {
     listing_cache: HashMap<u64, Vec<(u64, FileType, String)>>,
     attribute_cache: HashMap<u64, FileAttr>,
     head_cache: HashMap<u64, Vec<u8>>,
+    no_reads: bool,
 }
 
 impl<'a> ZipuratFS<'a> {
@@ -38,6 +39,7 @@ impl<'a> ZipuratFS<'a> {
         ids: &'a Vec<Box<dyn age::Identity>>,
         max_files: usize,
         max_size: usize,
+        no_reads: bool,
     ) -> Result<Self> {
         let mut ino_table = BiMap::new();
         ino_table.insert(1, Path::new("").to_path_buf());
@@ -78,6 +80,7 @@ impl<'a> ZipuratFS<'a> {
             listing_cache: HashMap::new(),
             attribute_cache: HashMap::new(),
             head_cache: HashMap::new(),
+            no_reads,
         })
     }
     fn get_size_by_ino(&self, ino: u64) -> Result<u64> {
@@ -207,6 +210,10 @@ impl<'a> Filesystem for ZipuratFS<'a> {
         _lock: Option<u64>,
         reply: ReplyData,
     ) {
+        if self.no_reads {
+            reply.error(ENOENT);
+            return;
+        }
         let Some(path) = self.ino_table.get_by_left(&ino) else {
             reply.error(ENOENT);
             return;
@@ -327,6 +334,7 @@ impl<'a> Filesystem for ZipuratFS<'a> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn mount(
     index: &Index,
     archive: &mut GenericFile,
@@ -335,13 +343,14 @@ pub fn mount(
     auto: bool,
     max_files: usize,
     max_size: usize,
+    no_reads: bool,
 ) -> Result<()> {
     let mut options = vec![MountOption::RO, MountOption::FSName("zipurat".to_string())];
     if auto {
         options.push(MountOption::AutoUnmount);
     }
     fuser::mount2(
-        ZipuratFS::new(index, archive, ids, max_files, max_size)?,
+        ZipuratFS::new(index, archive, ids, max_files, max_size, no_reads)?,
         mountpoint,
         &options,
     )?;

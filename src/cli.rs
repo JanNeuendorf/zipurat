@@ -101,6 +101,13 @@ pub enum Commands {
         cached_size: usize,
         #[arg(long, short, help = "sub-directory to mount")]
         sub_directory: Option<PathBuf>,
+        #[arg(
+            long,
+            short,
+            help = "Files can not be read (only listed)",
+            default_value = "false"
+        )]
+        no_reads: bool,
     },
     #[command(about = "Get archive information")]
     Info {},
@@ -188,6 +195,7 @@ impl Cli {
                 cached_files,
                 cached_size,
                 sub_directory,
+                no_reads,
             } => {
                 let mut archive = open_general_archive_read(&self.archive)?;
                 let identities = load_identities(self.identity_file.as_ref())?;
@@ -204,6 +212,7 @@ impl Cli {
                     *auto_unmount,
                     *cached_files,
                     *cached_size,
+                    *no_reads,
                 )?
             }
             Commands::Info {} => {
