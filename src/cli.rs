@@ -14,7 +14,7 @@ use crate::{
     restore::{copy_file, restore_command, stream_file},
     serializer::SimpleBinRepr,
 };
-
+use rpassword::prompt_password;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about =Some("Interact with zipurat archives."))]
 #[command(propagate_version = true)]
@@ -405,4 +405,18 @@ fn load_identities(provided: Option<&PathBuf>) -> Result<Vec<Box<dyn age::Identi
         ));
     }
     Ok(all_ids)
+}
+#[allow(unused)]
+fn get_password_identity() -> Result<Box<dyn age::Identity>> {
+    let password = prompt_password("Password: ")?;
+    let secstr = age::secrecy::SecretString::from(password);
+    let id = age::scrypt::Identity::new(secstr);
+    Ok(Box::new(id))
+}
+#[allow(unused)]
+fn get_password_recipient() -> Result<Box<dyn age::Recipient>> {
+    let password = prompt_password("Password: ")?;
+    let secstr = age::secrecy::SecretString::from(password);
+    let id = age::scrypt::Recipient::new(secstr);
+    Ok(Box::new(id))
 }
