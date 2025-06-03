@@ -11,6 +11,7 @@ use fuser::{
 };
 use indexmap::IndexMap;
 use libc::ENOENT;
+use nix::unistd::Uid;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -109,7 +110,7 @@ impl<'a> ZipuratFS<'a> {
             kind: FileType::RegularFile,
             perm: 0o644,
             nlink: 1,
-            uid: 501,
+            uid: Uid::current().into(),
             gid: 20,
             rdev: 0,
             flags: 0,
@@ -138,7 +139,7 @@ impl<'a> ZipuratFS<'a> {
             kind: FileType::Directory,
             perm: 0o755,
             nlink: num_links as u32,
-            uid: 501,
+            uid: Uid::current().into(),
             gid: 20,
             rdev: 0,
             flags: 0,
