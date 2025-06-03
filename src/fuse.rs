@@ -253,7 +253,6 @@ impl<'a> Filesystem for ZipuratFS<'a> {
 
         if let Some(cached) = self.read_cache.get(path) {
             reply.data(&cached[offset as usize..offset as usize + read_size as usize]);
-            return;
         } else {
             println!(
                 "loading {:?} ({})",
