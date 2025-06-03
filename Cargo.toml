@@ -1,6 +1,6 @@
 [package]
 name = "zipurat"
-version = "0.3.2"
+version = "0.4.0"
 edition = "2024"
 
 [dependencies]
@@ -21,7 +21,6 @@ num_cpus = "1.16.0"
 openssl-sys = { version = "0.9.108", features = ["vendored"],optional=true }
 rand = "0.9.1"
 rand_chacha = "0.9.0"
-rpassword = "7.4.0"
 ssh2 = "0.9.5"
 zstd = { version = "0.13.3" }
 
